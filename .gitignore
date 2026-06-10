@@ -1,0 +1,6 @@
+# .gitignore
+node_modules/
+config.json
+pta_status.json
+.env
+*.log
