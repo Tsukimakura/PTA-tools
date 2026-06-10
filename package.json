@@ -1,0 +1,21 @@
+{
+  "name": "pta-tools",
+  "version": "1.0.0",
+  "description": "An automation and utility toolkit for the Pintia (PTA) platform.",
+  "main": "monitor.js",
+  "scripts": {
+    "start": "node monitor.js"
+  },
+  "keywords": [
+    "pta",
+    "puppeteer",
+    "monitor"
+  ],
+  "author": "",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "puppeteer": "^22.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
