@@ -1,0 +1,93 @@
+function sanitizeFilename(name) {
+    return name.replace(/[\\/:*?"<>|]/g, '_');
+}
+
+function cleanText(text) {
+    if (!text) return '';
+    return text
+        .replace(/~?\s*@\[.*?\]\([^)]*\)/g, '\\_\\_\\_\\_\\_\\_')
+        .replace(/\$\$(.*?)\$\$/gs, '$$$1$$');
+}
+
+/**
+ * Generate a comprehensive Markdown archive including source code and results
+ * @param {string} setName - Name of the problem set
+ * @param {object} problemsByType - Dictionary of problems grouped by type
+ * @param {object} submissionMap - Dictionary mapping problem IDs to their submission details
+ * @returns {string} Formatted Markdown content
+ */
+function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
+    let md = `# [ARCHIVE] ${setName}\n\n`;
+
+    for (const [type, problems] of Object.entries(problemsByType)) {
+        if (!problems || problems.length === 0) continue;
+
+        md += `## ${type.replace(/_/g, ' ')}\n\n`;
+
+        problems.forEach((prob, index) => {
+            const label = prob.label ? `[${prob.label}] ` : '';
+            const maxScore = prob.score ? `(Max: ${prob.score} pts)` : '';
+            const author = prob.author ? ` - *Author: ${prob.author}*` : '';
+            
+            md += `### ${index + 1}. ${label}${cleanText(prob.title)} ${maxScore}${author}\n\n`;
+            
+            // Render Problem Content
+            if (prob.content) {
+                md += `${cleanText(prob.content)}\n\n`;
+            } else if (prob.description) {
+                md += `${cleanText(prob.description)}\n\n`;
+            }
+
+            // Retrieve corresponding submission data
+            const sub = submissionMap[prob.id];
+
+            if (!sub) {
+                md += `> **Status:** NO SUBMISSION RECORD FOUND\n\n`;
+                md += `---\n\n`;
+                return; // Continue to next problem
+            }
+
+            // Render Submission Result Header
+            md += `---\n`;
+            md += `**Submission Result:** ${sub.status}\n`;
+            md += `**Score:** ${sub.score} / ${prob.score}\n`;
+
+            if (type === 'MULTIPLE_CHOICE') {
+                md += `**Your Answer:** ${sub.answer || 'N/A'}\n\n`;
+            } 
+            else if (type === 'PROGRAMMING') {
+                md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
+                
+                md += `**Source Code:**\n`;
+                const codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
+                                 sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
+                md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
+
+                // Render Test Case Table if data exists
+                if (sub.testcases && Object.keys(sub.testcases).length > 0) {
+                    md += `**Test Case Breakdown:**\n`;
+                    md += `| Case | Status | Score | Time (s) | Memory (KB) | Hint |\n`;
+                    md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+                    
+                    for (const [caseId, caseData] of Object.entries(sub.testcases)) {
+                        const hint = sub.hints && sub.hints[caseId] ? sub.hints[caseId] : '';
+                        const caseScore = caseData.testcaseScore !== undefined ? caseData.testcaseScore : '-';
+                        const caseTime = caseData.time !== undefined ? caseData.time : '-';
+                        const caseMem = caseData.memory !== undefined ? Math.round(caseData.memory / 1024) : '-';
+                        md += `| ${caseId} | ${caseData.result} | ${caseScore} | ${caseTime} | ${caseMem} | ${hint} |\n`;
+                    }
+                    md += `\n`;
+                }
+            }
+            
+            md += `---\n\n`;
+        });
+    }
+
+    return md;
+}
+
+module.exports = {
+    sanitizeFilename,
+    generateArchiveMarkdown
+};
