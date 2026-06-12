@@ -23,7 +23,17 @@ async function generateTerminalReport(setId, setName) {
         const studentName = sessionData.exam.studentUser.name;
         const studentNumber = sessionData.exam.studentUser.studentNumber;
 
-        // 2. Fetch Rankings
+        // 2. Fetch Problem Summaries to get the maximum possible scores
+        const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
+        const summaryData = await summaryRes.json();
+        const summaries = summaryData.summaries || {};
+        
+        let maxTotalScore = 0;
+        for (const type in summaries) {
+            maxTotalScore += summaries[type].totalScore || 0;
+        }
+
+        // 3. Fetch Rankings to get the user's actual scores
         const rankingRes = await ptaFetch(endpoints.COMMON_RANKINGS(setId, userId));
         const rankingData = await rankingRes.json();
 
@@ -34,18 +44,19 @@ async function generateTerminalReport(setId, setName) {
 
         const selfRank = rankingData.selfRanking;
 
-        // 3. Print Report Card
+        // 4. Print Report Card
         console.log("\n========================================");
         console.log(` Report Card: ${setName}`);
         console.log("========================================");
         console.log(` User: ${studentName} (${studentNumber})`);
         console.log(` Rank: ${selfRank.rank} / ${rankingData.total}`);
-        console.log(` Total Score: ${selfRank.totalScore} pts`);
+        console.log(` Total Score: ${selfRank.totalScore} / ${maxTotalScore} pts`);
         console.log(` Total Time: ${selfRank.solvingTime} seconds\n`);
 
         console.log("[ Module Scores ]");
         for (const [type, score] of Object.entries(selfRank.typeScores)) {
-            console.log(` - ${type.replace(/_/g, ' ')}: ${score} pts`);
+            const maxTypeScore = summaries[type] ? summaries[type].totalScore : '-';
+            console.log(` - ${type.replace(/_/g, ' ')}: ${score} / ${maxTypeScore} pts`);
         }
         console.log("========================================\n");
 
