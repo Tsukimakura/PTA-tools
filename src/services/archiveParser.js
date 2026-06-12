@@ -6,7 +6,8 @@ function cleanText(text) {
     if (!text) return '';
     return text
         .replace(/~?\s*@\[.*?\]\([^)]*\)/g, '\\_\\_\\_\\_\\_\\_')
-        .replace(/\$\$(.*?)\$\$/gs, '$$$1$$');
+        .replace(/\$\$(.*?)\$\$/gs, '$$$1$$')
+        .replace(/\]\(~\//g, '](https://images.ptausercontent.com/');
 }
 
 /**
@@ -17,8 +18,27 @@ function cleanText(text) {
  * @returns {string} Formatted Markdown content
  */
 function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
-    let md = `# [ARCHIVE] ${setName}\n\n`;
+    // 1. Calculate Global Scores
+    let totalMaxScore = 0;
+    let totalUserScore = 0;
 
+    for (const [type, problems] of Object.entries(problemsByType)) {
+        if (!problems) continue;
+        problems.forEach(prob => {
+            totalMaxScore += prob.score || 0;
+            const sub = submissionMap[prob.id];
+            if (sub && sub.score) {
+                totalUserScore += sub.score;
+            }
+        });
+    }
+
+    // 2. Build Markdown Header
+    let md = `# [ARCHIVE] ${setName}\n\n`;
+    md += `**Total Score:** ${totalUserScore} / ${totalMaxScore}\n\n`;
+    md += `---\n\n`;
+
+    // 3. Build Problem Sections
     for (const [type, problems] of Object.entries(problemsByType)) {
         if (!problems || problems.length === 0) continue;
 
@@ -26,34 +46,30 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
 
         problems.forEach((prob, index) => {
             const label = prob.label ? `[${prob.label}] ` : '';
-            const maxScore = prob.score ? `(Max: ${prob.score} pts)` : '';
+            const maxScore = prob.score ? `(${prob.score} pts)` : '';
             const author = prob.author ? ` - *Author: ${prob.author}*` : '';
             
             md += `### ${index + 1}. ${label}${cleanText(prob.title)} ${maxScore}${author}\n\n`;
             
-            // Render Problem Content
             if (prob.content) {
                 md += `${cleanText(prob.content)}\n\n`;
             } else if (prob.description) {
                 md += `${cleanText(prob.description)}\n\n`;
             }
 
-            // Retrieve corresponding submission data
             const sub = submissionMap[prob.id];
 
             if (!sub) {
                 md += `> **Status:** NO SUBMISSION RECORD FOUND\n\n`;
                 md += `---\n\n`;
-                return; // Continue to next problem
+                return; 
             }
 
-            // Render Submission Result Header
-            md += `---\n`;
             md += `**Submission Result:** ${sub.status}\n`;
-            md += `**Score:** ${sub.score} / ${prob.score}\n`;
+            md += `**Score:** ${sub.score} / ${prob.score}\n\n`;
 
-            if (type === 'MULTIPLE_CHOICE') {
-                md += `**Your Answer:** ${sub.answer || 'N/A'}\n\n`;
+            if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
+                md += `> **Your Answer:** ${sub.answer || 'N/A'}\n\n`;
             } 
             else if (type === 'PROGRAMMING') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
@@ -63,7 +79,6 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                                  sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
                 md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
 
-                // Render Test Case Table if data exists
                 if (sub.testcases && Object.keys(sub.testcases).length > 0) {
                     md += `**Test Case Breakdown:**\n`;
                     md += `| Case | Status | Score | Time (s) | Memory (KB) | Hint |\n`;
