@@ -46,7 +46,7 @@ async function getCookieViaBrowser() {
             console.warn("[WARN] Auto-fill failed. Please enter credentials manually in the browser window.");
         }
 
-        console.log("[INFO] Monitoring URL navigation state in the background (timeout: 3 minutes)...");
+        console.log("[INFO] Monitoring URL navigation state in the background");
         let loginSuccess = false;
 
         for (let i = 0; i < 180; i++) {
