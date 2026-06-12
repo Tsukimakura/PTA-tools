@@ -2,7 +2,6 @@
   "username": "your_email@example.com",
   "password": "your_password",
   "cookie": "",
-  "apiUrl": "https://pintia.cn/api/...",
   "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
   "refreshInterval": 30000
 }

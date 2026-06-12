@@ -1,13 +1,15 @@
-const { getConfig } = require('../utils/config');
-
 /**
  * Returns the relevant API endpoints.
  */
 function getEndpoints() {
-    const config = getConfig();
+    // Generate dynamic filter based on current UTC time to capture ongoing and upcoming sets
+    const now = new Date().toISOString();
+    const filterParams = JSON.stringify({ endAtAfter: now });
+    const encodedFilter = encodeURIComponent(filterParams);
+
     return {
-        // Legacy single URL for the monitor
-        PROBLEM_SETS: config.apiUrl,
+        // Dynamic URL for the monitor, eliminating the need for manual configuration
+        PROBLEM_SETS: `https://pintia.cn/api/problem-sets?filter=${encodedFilter}&page=0&limit=30&order_by=END_AT&asc=true`,
         
         // Base API for fetching all problem sets with pagination
         ALL_PROBLEM_SETS: (page = 0, limit = 30) => 
