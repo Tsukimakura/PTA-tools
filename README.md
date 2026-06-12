@@ -1,71 +1,80 @@
-# PTA-tools
+# PTA-Tools
 
-A toolkit for the Pintia (PTA) platform.
+A useful (I hope) toolkit for the PTA (Pintia) platform.
 
-## Architecture & Project Structure
+---
 
-The project follows a decoupled design to allow seamless extensions (e.g., interactive CLI queries, assignment downloaders) without breaking existing workflows.
+## Features
 
-```text
-PTA-tools/
-├── bin/                      # Executable entry points for different tools
-│   └── pta-monitor.js        # Background daemon for real-time tracking
-├── src/                      # Core business logic
-│   ├── api/                  # Request layer (client wrappers, endpoint paths)
-│   ├── auth/                 # Authentication state & browser automation
-│   └── utils/                # Cross-cutting concerns (logging, configuration)
-├── config.json               # Local private credentials
-├── pta_status.json           # Cached state
-└── package.json              # Dependency manifests and scripts
-```
+* **Interactive CLI Management:** Seamlessly navigate through current and historical problem sets using arrow keys.
+* **Dual-Mode Downloader:** For ongoing problem-sets (Clean Mode), download the problems. For ended ones (Archive Mode), download more information like scores/answers/ranks etc.
+* **Terminal Report Cards:** Direct command-line data grid showing the basic information of the chosen problem-set.
+* **Proactive Status Monitor:** Persistent polling daemon capable of computing real-time status changes and emitting notifications via integrated DingTalk webhooks.
 
-## Getting Started
+---
 
-### Prerequisites
+## Installation
 
-* Node.js >= 18.x
-* Basic Chrome/Chromium operational dependencies (required for Puppeteer under Linux/WSL2)
-
-### Installation
-
-1. Clone the repository and install exact dependencies using the lockfile:
+1. **Clone the Repository:**
 
 ```bash
 git clone https://github.com/Tsukimakura/PTA-tools.git
 cd PTA-tools
+```
+
+2. **Install Dependencies:**
+
+```bash
 npm install
 ```
 
 
-2. Initialize your local runtime properties by copying the schema template:
+3. **Environment Setup:**
+Duplicate the example profile into a concrete local configurations map:
 
 ```bash
 cp config.example.json config.json
 ```
 
 
-3. Populate `config.json` with your real profile metrics:
+Open `config.json` and insert your username and password (cookie is not necessary)
 
 ```json
 {
-  "username": "your_email@example.com",
-  "password": "your_password",
+  "username": "",
+  "password": "",
   "cookie": "",
-  "apiUrl": "https://pintia.cn/api/",
-  "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=",
+  "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=...",
   "refreshInterval": 30000
 }
 ```
 
+---
 
+## Usage Guide
 
-### Execution
+### 1. Interactive Console
 
-Run the flat background monitor component via the unified npm wrapper:
+To start downloading assignments or inspecting reports via terminal, execute:
+
+```bash
+npm run cli
+```
+
+Then I believe you can understand how to use it.
+
+### 2. Status Monitoring Daemon (Monitor)
+
+To spin up the continuous tracking subsystem that records state changes and pipes them straight to your communication channels, execute:
 
 ```bash
 npm run monitor
 ```
+
+The program will generate a local database layer tracking state-machine transformations (`pta_status.json`) and run silently in the background.
+
+(In short, you can use it to avoid missing a test...)
+
 
 ---
 
