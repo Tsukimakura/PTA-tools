@@ -4,7 +4,7 @@
   "description": "An automation and utility toolkit for the Pintia (PTA) platform.",
   "main": "monitor.js",
   "scripts": {
-    "start": "node monitor.js"
+    "monitor": "node bin/pta-monitor.js"
   },
   "keywords": [
     "pta",
