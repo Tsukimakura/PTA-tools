@@ -8,39 +8,49 @@ const { downloadArchive } = require('../src/services/archiveDownloader');
 
 /**
  * Handle operations for ongoing or pending problem sets
- * @param {string} setId - The target problem set ID
- * @param {string} setName - The original name of the problem set
+ * @param {object} selectedSet - The full problem set object
  */
-async function handleOngoingSet(setId, setName) {
+async function handleOngoingSet(selectedSet) {
     const { action } = await inquirer.prompt([
         {
             type: 'list',
             name: 'action',
-            message: `Select an action for [ONGOING/PENDING] ${setName}:`,
+            message: `Select an action for [ONGOING/PENDING] ${selectedSet.name}:`,
+            prefix: '>',
             choices: [
+                { name: 'View Basic Information', value: 'INFO' },
                 { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
                 { name: '< Back to Main Menu', value: 'BACK' }
             ]
         }
     ]);
 
-    if (action === 'DOWNLOAD_CLEAN') {
-        console.log(`[INFO] Starting clean download workflow for: ${setName}`);
-        await downloadProblemSet(setId, setName);
+    if (action === 'INFO') {
+        console.log("\n========================================");
+        console.log(` Information: ${selectedSet.name}`);
+        console.log("========================================");
+        console.log(` Set ID: ${selectedSet.id}`);
+        console.log(` Start Time: ${new Date(selectedSet.startAt).toLocaleString()}`);
+        console.log(` End Time: ${new Date(selectedSet.endAt).toLocaleString()}`);
+        console.log(` Status: ${calculateRealStatus(selectedSet.startAt, selectedSet.endAt)}`);
+        console.log("========================================\n");
+    } else if (action === 'DOWNLOAD_CLEAN') {
+        console.log(`[INFO] Starting clean download workflow for: ${selectedSet.name}`);
+        await downloadProblemSet(selectedSet.id, selectedSet.name);
     }
 }
 
 /**
  * Handle operations for ended problem sets
- * @param {string} setId - The target problem set ID
- * @param {string} setName - The original name of the problem set
+ * @param {object} selectedSet - The full problem set object
  */
-async function handleEndedSet(setId, setName) {
+async function handleEndedSet(selectedSet) {
     const { action } = await inquirer.prompt([
         {
             type: 'list',
             name: 'action',
-            message: `Select an action for [ENDED] ${setName}:`,
+            message: `Select an action for [ENDED] ${selectedSet.name}:`,
+            prefix: '>',
             choices: [
                 { name: 'View Terminal Report Card', value: 'REPORT' },
                 { name: 'Download Archive (With Source Code & Results)', value: 'ARCHIVE' },
@@ -50,9 +60,9 @@ async function handleEndedSet(setId, setName) {
     ]);
 
     if (action === 'REPORT') {
-        await generateTerminalReport(setId, setName);
+        await generateTerminalReport(selectedSet.id, selectedSet.name);
     } else if (action === 'ARCHIVE') {
-        await downloadArchive(setId, setName);
+        await downloadArchive(selectedSet.id, selectedSet.name);
     }
 }
 
@@ -66,7 +76,7 @@ async function initCLI() {
 
     const config = getConfig();
 
-    // 1. Session and Authentication Guard
+    // 1. Session Guard
     if (!config.cookie) {
         console.log("[INFO] No valid cookie found. Initiating login sequence...");
         const success = await getCookieViaBrowser();
@@ -76,7 +86,7 @@ async function initCLI() {
         }
     }
 
-    // 2. Fetch All Metadata
+    // 2. Fetch Metadata
     let problemSets = await fetchAllProblemSets();
     
     if (problemSets === null) {
@@ -92,7 +102,7 @@ async function initCLI() {
         return;
     }
 
-    // 3. Prepare Main Menu Choice Vector
+    // 3. Prepare Choices
     const choices = problemSets.map(set => {
         const realStatus = calculateRealStatus(set.startAt, set.endAt);
         return {
@@ -104,13 +114,14 @@ async function initCLI() {
     choices.push(new inquirer.Separator());
     choices.push({ name: "Exit", value: "EXIT" });
 
-    // 4. Persistent Navigation Loop
+    // 4. Persistent Loop
     while (true) {
         const { selectedSetId } = await inquirer.prompt([
             {
                 type: 'list',
                 name: 'selectedSetId',
                 message: 'Select a Problem Set to inspect or download (Use Arrow Keys):',
+                prefix: '>',
                 choices: choices,
                 pageSize: 15
             }
@@ -124,11 +135,11 @@ async function initCLI() {
         const selectedSet = problemSets.find(s => s.id === selectedSetId);
         const realStatus = calculateRealStatus(selectedSet.startAt, selectedSet.endAt);
 
-        // Routing logic based on status matrix
+        // Sub-menu routing passing the ENTIRE object
         if (realStatus === 'ENDED') {
-            await handleEndedSet(selectedSetId, selectedSet.name);
+            await handleEndedSet(selectedSet);
         } else {
-            await handleOngoingSet(selectedSetId, selectedSet.name);
+            await handleOngoingSet(selectedSet);
         }
         
         console.log("\n----------------------------------------");
