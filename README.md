@@ -1,65 +1,78 @@
-# PTA-Tools
+# PTA-tools
 
-A comprehensive automation and utility toolkit for the Pintia (PTA) platform. While designed as a multi-functional suite for future expansions, it currently features a robust background status monitoring system.
+A toolkit for the Pintia (PTA) platform.
 
-## Current Component
+## Architecture & Project Structure
 
-**Monitor (`monitor.js`)**
+The project follows a decoupled design to allow seamless extensions (e.g., interactive CLI queries, assignment downloaders) without breaking existing workflows.
 
-An automated background service that polls the PTA platform API to monitor problem set state changes and pushes instant alerts via Webhooks.
-
----
+```text
+PTA-tools/
+├── bin/                      # Executable entry points for different tools
+│   └── pta-monitor.js        # Background daemon for real-time tracking
+├── src/                      # Core business logic
+│   ├── api/                  # Request layer (client wrappers, endpoint paths)
+│   ├── auth/                 # Authentication state & browser automation
+│   └── utils/                # Cross-cutting concerns (logging, configuration)
+├── config.json               # Local private credentials
+├── pta_status.json           # Cached state
+└── package.json              # Dependency manifests and scripts
+```
 
 ## Getting Started
 
 ### Prerequisites
+
 * Node.js >= 18.x
-* Chrome/Chromium dependencies (required for Puppeteer execution under Linux environments)
+* Basic Chrome/Chromium operational dependencies (required for Puppeteer under Linux/WSL2)
 
 ### Installation
-1. Clone the repository and install the required dependencies:
+
+1. Clone the repository and install exact dependencies using the lockfile:
 
 ```bash
 git clone https://github.com/Tsukimakura/PTA-tools.git
-cd PTA-Tools
+cd PTA-tools
 npm install
 ```
 
-2. Initialize your local configuration by copying the production template:
+
+2. Initialize your local runtime properties by copying the schema template:
 
 ```bash
 cp config.example.json config.json
 ```
 
 
-3. Populate `config.json` with your configurations:
+3. Populate `config.json` with your real profile metrics:
 
 ```json
 {
   "username": "your_email@example.com",
   "password": "your_password",
   "cookie": "",
-  "apiUrl": "https://pintia.cn/api/...",
-  "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=...",
+  "apiUrl": "https://pintia.cn/api/",
+  "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=",
   "refreshInterval": 30000
 }
 ```
-* The unit of `refreshInterval` is milliseconds.
 
 
-### Running
 
-To start the daemon process locally:
+### Execution
+
+Run the flat background monitor component via the unified npm wrapper:
 
 ```bash
-node monitor.js
+npm run monitor
 ```
-
 
 ---
 
 ## More
 
-PR 请先联系我。能力有限，仍在学习。欢迎指教和交流。
+I'm far from skilled temporarily. Issues and PRs (Contact me first) are welcome.
 
-QQ：2889908070
+QQ: 2889908070 (recommended);
+
+email: [chenlingshi@zju.edu.cn](chenlingshi@zju.edu.cn)
