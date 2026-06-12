@@ -142,35 +142,54 @@ async function checkPTAStatus() {
     console.log(`\n[INFO] [${getTimestamp()}] Checking PTA problem set status...`);
 
     try {
-        if (!currentCookie) {
-            const success = await getCookieViaBrowser();
-            if (!success) {
-                isChecking = false;
-                return;
+        let res;
+        let currentProblemSets = [];
+        const MAX_RETRIES = 3;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            
+            if (!currentCookie) {
+                const success = await getCookieViaBrowser();
+                if (!success) {
+                    isChecking = false;
+                    return; // Abort if browser login fails
+                }
             }
-        }
 
-        const response = await fetch(API_URL, {
-            headers: {
-                'Cookie': currentCookie,
-                'Accept': 'application/json, text/plain, */*',
-                'Origin': 'https://pintia.cn',
-                'Referer': 'https://pintia.cn/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            const response = await fetch(API_URL, {
+                headers: {
+                    'Cookie': currentCookie,
+                    'Accept': 'application/json, text/plain, */*',
+                    'Origin': 'https://pintia.cn',
+                    'Referer': 'https://pintia.cn/',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+
+            res = await response.json();
+
+            // Check if cookie is expired
+            if (res.error && res.error.code === 'USER_NOT_FOUND') {
+                console.warn(`[WARN] Credentials expired (Attempt ${attempt}/${MAX_RETRIES}).`);
+                
+                // Clear the invalid cookie
+                currentCookie = "";
+                config.cookie = "";
+                fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+
+                if (attempt === MAX_RETRIES) {
+                    console.error("[ERROR] Authentication failed repeatedly. Aborting this cycle.");
+                    isChecking = false;
+                    return;
+                }
+
+                console.log("[INFO] Launching browser immediately to re-authenticate...");
+                continue; // Loop restarts -> triggers getCookieViaBrowser() immediately
             }
-        });
 
-        const res = await response.json();
-        const currentProblemSets = res.problemSets || (res.data && res.data.problemSets) || [];
-
-        // Invalidate the local cookie if the server responds with an unauthorized error
-        if (res.error && res.error.code === 'USER_NOT_FOUND') {
-            console.warn("[WARN] Credentials expired. Clearing configuration. The browser will be launched in the next cycle to acquire a new Cookie...");
-            currentCookie = "";
-            config.cookie = "";
-            fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-            isChecking = false;
-            return;
+            // If successful, extract data and break the retry loop
+            currentProblemSets = res.problemSets || (res.data && res.data.problemSets) || [];
+            break; 
         }
 
         if (currentProblemSets.length === 0) {
@@ -228,7 +247,6 @@ async function checkPTAStatus() {
     } catch (err) {
         console.error(`[ERROR] Monitoring request failed: ${err.message}`);
     } finally {
-        // Release the process lock
         isChecking = false; 
     }
 }
