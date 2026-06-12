@@ -20,7 +20,17 @@ function getEndpoints() {
         PROBLEM_SUMMARIES: (setId) => `https://pintia.cn/api/problem-sets/${setId}/problem-summaries`,
         
         // Fetch actual problems by specific type and exam session
-        EXAM_PROBLEMS: (setId, examId, type) => `https://pintia.cn/api/problem-sets/${setId}/exam-problems?exam_id=${examId}&problem_type=${type}`
+        EXAM_PROBLEMS: (setId, examId, type) => `https://pintia.cn/api/problem-sets/${setId}/exam-problems?exam_id=${examId}&problem_type=${type}`,
+
+        // New endpoints for Archive and Report features
+        COMMON_RANKINGS: (setId, userId) => 
+            `https://pintia.cn/api/problem-sets/${setId}/common-rankings?target_user_id=${userId}`,
+            
+        LAST_SUBMISSIONS_BY_TYPE: (examId, setId, type) => 
+            `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/last-submissions?problem_type=${type}`,
+            
+        LAST_SUBMISSIONS_BY_PROBLEM: (examId, setId, problemId) => 
+            `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/last-submissions?problem_set_problem_id=${problemId}`
     };
 }
 
