@@ -13,6 +13,21 @@ const { getEndpoints } = require('../src/api/endpoints');
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
 let isChecking = false;
 
+/**
+ * Format a single problem set into a Markdown structured block
+ * @param {object} set - The raw problem set object from API
+ * @param {string} [overrideStatus] - Optional status to override the calculated one
+ * @returns {string} Formatted Markdown text
+ */
+function formatSetInfo(set, overrideStatus) {
+    const realStatus = overrideStatus || calculateRealStatus(set.startAt, set.endAt);
+    const startDate = new Date(set.startAt).toLocaleString('zh-CN', { hour12: false });
+    const endDate = new Date(set.endAt).toLocaleString('zh-CN', { hour12: false });
+    
+    // Removed formatting from Status and Start, but explicitly bolded the End line
+    return `**${set.name}**\n- Status: ${realStatus}\n- Start: ${startDate}\n- **End: \`${endDate}\`**`;
+}
+
 async function checkPTAStatus() {
     if (isChecking) {
         console.log(`[WARN] [${getTimestamp()}] Task backlogged. Skipping current trigger...`);
@@ -30,8 +45,6 @@ async function checkPTAStatus() {
 
         // Retry loop for auto-reauthentication
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            
-            // 1. Ensure authentication ticket exists
             if (!config.cookie) {
                 const success = await getCookieViaBrowser();
                 if (!success) {
@@ -40,15 +53,11 @@ async function checkPTAStatus() {
                 }
             }
 
-            // 2. Fetch data using the centralized API client
             const response = await ptaFetch(endpoints.PROBLEM_SETS);
             const res = await response.json();
 
-            // 3. Handle expired credentials
             if (res.error && res.error.code === 'USER_NOT_FOUND') {
                 console.warn(`[WARN] Credentials expired (Attempt ${attempt}/${MAX_RETRIES}).`);
-                
-                // Clear the invalid cookie globally
                 updateCookie("");
 
                 if (attempt === MAX_RETRIES) {
@@ -61,36 +70,41 @@ async function checkPTAStatus() {
                 continue; 
             }
 
-            // 4. Data extracted successfully
             currentProblemSets = res.problemSets || (res.data && res.data.problemSets) || [];
             break; 
         }
 
-        // Diffing and Notifications
-        
         if (currentProblemSets.length === 0) {
-            console.log("[INFO] No ongoing problem sets currently available.");
+            console.log("[INFO] No problem sets currently available.");
             isChecking = false;
             return;
         }
 
         let lastStatus = {};
-        if (fs.existsSync(STATUS_FILE)) {
-            lastStatus = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
-        } else {
-            currentProblemSets.forEach(set => {
-                lastStatus[set.id] = { 
-                    status: calculateRealStatus(set.startAt, set.endAt), 
-                    name: set.name 
-                };
+        
+        // First Run: Create file and send Markdown summary
+        if (!fs.existsSync(STATUS_FILE)) {
+            const title = "PTA Monitor: Initialization";
+            let initialMessage = "### PTA Monitor Initialization\nMonitoring script successfully started.\n\n---\n\n#### All Monitored Sets\n\n";
+
+            // Map each set to a formatted string block
+            const setsBlocks = currentProblemSets.map(set => {
+                const realStatus = calculateRealStatus(set.startAt, set.endAt);
+                lastStatus[set.id] = { status: realStatus, name: set.name };
+                return formatSetInfo(set, realStatus);
             });
+
+            initialMessage += setsBlocks.join("\n\n---\n\n");
+
             fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
             console.log("[INFO] First run completed. Status saved to local file.");
-            await sendDingTalkNotification("Monitoring script has successfully taken over and is running in the background.");
+            await sendDingTalkNotification(title, initialMessage.trim());
             isChecking = false;
             return;
         }
 
+        // Diffing: Compare current sets with local cache
+        lastStatus = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
         let hasChange = false;
         let changeMessages = [];
 
@@ -100,19 +114,37 @@ async function checkPTAStatus() {
 
             if (!oldData) {
                 hasChange = true;
-                changeMessages.push(`[NEW] Problem set detected: "${set.name}" (Status: ${realStatus})`);
+                changeMessages.push(`**[NEW SET DETECTED]**\n${formatSetInfo(set, realStatus)}`);
                 lastStatus[set.id] = { status: realStatus, name: set.name };
             } else if (oldData.status !== realStatus) {
                 hasChange = true;
-                changeMessages.push(`[UPDATE] Status changed for "${set.name}": [${oldData.status}] -> [${realStatus}]`);
+                changeMessages.push(`**[STATUS UPDATE: \`${oldData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(set, realStatus)}`);
                 lastStatus[set.id].status = realStatus;
             }
         });
 
+        // Notification: Send formatted Markdown report
         if (hasChange) {
-            const finalMessage = changeMessages.join("\n");
-            console.log(`[INFO] Status changes detected!\n${finalMessage}`);
-            await sendDingTalkNotification(finalMessage);
+            const title = "PTA Monitor: Status Updates";
+            let finalMessage = "### PTA Monitor Updates\n\n---\n\n#### Changes Detected\n\n";
+            
+            // Join change blocks with a horizontal rule
+            finalMessage += changeMessages.join("\n\n---\n\n") + "\n\n";
+
+            finalMessage += "---\n\n#### Currently ONGOING\n\n";
+            const ongoingSets = currentProblemSets.filter(set => calculateRealStatus(set.startAt, set.endAt) === 'ONGOING');
+            
+            if (ongoingSets.length > 0) {
+                const ongoingBlocks = ongoingSets.map(set => formatSetInfo(set, 'ONGOING'));
+                
+                // Join ongoing blocks with a horizontal rule
+                finalMessage += ongoingBlocks.join("\n\n---\n\n") + "\n\n";
+            } else {
+                finalMessage += "> *No ongoing problem sets at the moment.*\n";
+            }
+
+            console.log(`[INFO] Status changes detected! Sending Markdown notification...`);
+            await sendDingTalkNotification(title, finalMessage.trim());
             fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
         } else {
             console.log("[INFO] Check complete. No changes detected.");
