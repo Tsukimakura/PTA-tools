@@ -24,7 +24,6 @@ function formatSetInfo(set, overrideStatus) {
     const startDate = new Date(set.startAt).toLocaleString('zh-CN', { hour12: false });
     const endDate = new Date(set.endAt).toLocaleString('zh-CN', { hour12: false });
     
-    // Removed formatting from Status and Start, but explicitly bolded the End line
     return `**${set.name}**\n- Status: ${realStatus}\n- Start: ${startDate}\n- **End: \`${endDate}\`**`;
 }
 
@@ -84,10 +83,9 @@ async function checkPTAStatus() {
         
         // First Run: Create file and send Markdown summary
         if (!fs.existsSync(STATUS_FILE)) {
-            const title = "PTA Monitor: Initialization";
-            let initialMessage = "### PTA Monitor Initialization\nMonitoring script successfully started.\n\n---\n\n#### All Monitored Sets\n\n";
+            const title = "PTA Monitor: Data Initialization";
+            let initialMessage = "### PTA Monitor Data Initialization\nInitial data cache created successfully.\n\n---\n\n#### All Monitored Sets\n\n";
 
-            // Map each set to a formatted string block
             const setsBlocks = currentProblemSets.map(set => {
                 const realStatus = calculateRealStatus(set.startAt, set.endAt);
                 lastStatus[set.id] = { status: realStatus, name: set.name };
@@ -97,7 +95,7 @@ async function checkPTAStatus() {
             initialMessage += setsBlocks.join("\n\n---\n\n");
 
             fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
-            console.log("[INFO] First run completed. Status saved to local file.");
+            console.log("[INFO] Data initialization completed. Status saved to local file.");
             await sendDingTalkNotification(title, initialMessage.trim());
             isChecking = false;
             return;
@@ -128,7 +126,6 @@ async function checkPTAStatus() {
             const title = "PTA Monitor: Status Updates";
             let finalMessage = "### PTA Monitor Updates\n\n---\n\n#### Changes Detected\n\n";
             
-            // Join change blocks with a horizontal rule
             finalMessage += changeMessages.join("\n\n---\n\n") + "\n\n";
 
             finalMessage += "---\n\n#### Currently ONGOING\n\n";
@@ -136,8 +133,6 @@ async function checkPTAStatus() {
             
             if (ongoingSets.length > 0) {
                 const ongoingBlocks = ongoingSets.map(set => formatSetInfo(set, 'ONGOING'));
-                
-                // Join ongoing blocks with a horizontal rule
                 finalMessage += ongoingBlocks.join("\n\n---\n\n") + "\n\n";
             } else {
                 finalMessage += "> *No ongoing problem sets at the moment.*\n";
@@ -157,7 +152,55 @@ async function checkPTAStatus() {
     }
 }
 
-// Initialization and interval setup
+// Process Management
 const REFRESH_INTERVAL = getConfig().refreshInterval || 5 * 60 * 1000;
-checkPTAStatus();
-setInterval(checkPTAStatus, REFRESH_INTERVAL);
+
+/**
+ * Handle process termination gracefully by sending a final notification
+ * @param {string} signal - The event or signal causing the shutdown
+ */
+async function handleShutdown(signal) {
+    console.log(`\n[INFO] Received ${signal}.`);
+    const title = "PTA Monitor: Process Terminated";
+    const time = new Date().toLocaleString('zh-CN', { hour12: false });
+    
+    const message = `### PTA Monitor Process Terminated\n\n- **Time:** \`${time}\`\n- **Reason:** \`${signal}\`\n\n> The background monitoring script has been safely stopped.`;
+    
+    try {
+        await sendDingTalkNotification(title, message);
+        console.log("[INFO] Shutdown notification sent successfully. Exiting.");
+    } catch (e) {
+        console.error(`[ERROR] Failed to send shutdown notification: ${e.message}`);
+    }
+    
+    // Exit with standard status code (0 for SIGINT/SIGTERM, 1 for uncaught errors)
+    const exitCode = signal.includes('Crash') ? 1 : 0;
+    process.exit(exitCode);
+}
+
+// Attach listeners for common stop signals (Ctrl+C, PM2 stop, etc.)
+process.on('SIGINT', () => handleShutdown('SIGINT (Manual Interruption)'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM (System Kill)'));
+process.on('uncaughtException', (err) => {
+    console.error(`[FATAL ERROR] Uncaught Exception: ${err.message}`);
+    handleShutdown(`Application Crash: ${err.message}`);
+});
+
+/**
+ * Boot sequence: Notify startup, then begin polling loop
+ */
+async function bootSequence() {
+    console.log(`[INFO] Booting PTA Monitor... (PID: ${process.pid})`);
+    const title = "PTA Monitor: Process Started";
+    const time = new Date().toLocaleString('zh-CN', { hour12: false });
+    
+    // Convert interval from milliseconds to seconds
+    const intervalSecs = (REFRESH_INTERVAL / 1000).toFixed(0);
+    const message = `### PTA Monitor Process Started\n\n- **Time:** \`${time}\`\n- **PID:** \`${process.pid}\`\n- **Refresh Interval:** \`${intervalSecs} seconds\`\n\n> The script has initialized successfully and is now active.`;
+    await sendDingTalkNotification(title, message);
+    checkPTAStatus();
+    setInterval(checkPTAStatus, REFRESH_INTERVAL);
+}
+
+// Start the application
+bootSequence();
