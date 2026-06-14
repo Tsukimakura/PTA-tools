@@ -3,7 +3,7 @@ const { getCookieViaBrowser } = require('../src/auth/authManager');
 const { getConfig, updateCookie } = require('../src/utils/config');
 const { calculateRealStatus } = require('../src/utils/helpers');
 const { fetchAllProblemSets, downloadProblemSet } = require('../src/services/downloader');
-const { generateTerminalReport } = require('../src/services/report');
+const { generateTerminalReport, generateOngoingInfo } = require('../src/services/report');
 const { downloadArchive } = require('../src/services/archiveDownloader');
 
 /**
@@ -18,7 +18,7 @@ async function handleOngoingSet(selectedSet) {
             message: `Select an action for [ONGOING/PENDING] ${selectedSet.name}:`,
             prefix: '>',
             choices: [
-                { name: 'View Basic Information', value: 'INFO' },
+                { name: 'View Real-time Progress', value: 'INFO' },
                 { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
                 { name: '< Back to Main Menu', value: 'BACK' }
             ]
@@ -26,14 +26,7 @@ async function handleOngoingSet(selectedSet) {
     ]);
 
     if (action === 'INFO') {
-        console.log("\n========================================");
-        console.log(` Information: ${selectedSet.name}`);
-        console.log("========================================");
-        console.log(` Set ID: ${selectedSet.id}`);
-        console.log(` Start Time: ${new Date(selectedSet.startAt).toLocaleString()}`);
-        console.log(` End Time: ${new Date(selectedSet.endAt).toLocaleString()}`);
-        console.log(` Status: ${calculateRealStatus(selectedSet.startAt, selectedSet.endAt)}`);
-        console.log("========================================\n");
+        await generateOngoingInfo(selectedSet);
     } else if (action === 'DOWNLOAD_CLEAN') {
         console.log(`[INFO] Starting clean download workflow for: ${selectedSet.name}`);
         await downloadProblemSet(selectedSet.id, selectedSet.name);
