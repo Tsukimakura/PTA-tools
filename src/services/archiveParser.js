@@ -71,11 +71,27 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             
             md += `### ${index + 1}. ${label}${cleanText(prob.title)} ${maxScore}${author}\n\n`;
             
-            if (prob.content) {
-                md += `${cleanText(prob.content)}\n\n`;
-            } else if (prob.description) {
-                md += `${cleanText(prob.description)}\n\n`;
+            // Extract base content
+            let problemBody = prob.content ? cleanText(prob.content) : (prob.description ? cleanText(prob.description) : '');
+
+            // Safely inject multiple choice options
+            if (type === 'MULTIPLE_CHOICE' && prob.problemConfig && prob.problemConfig.multipleChoiceProblemConfig) {
+                const choices = prob.problemConfig.multipleChoiceProblemConfig.choices;
+                if (choices && Array.isArray(choices) && choices.length > 0) {
+                    const rawText = prob.content || prob.description || "";
+                    const hasEmbeddedChoices = /(^|\n|<br>|<p>)\s*A[\.、]\s/i.test(rawText);
+                    
+                    if (!hasEmbeddedChoices) {
+                        problemBody += '\n\n';
+                        choices.forEach((choice, i) => {
+                            const letter = String.fromCharCode(65 + i);
+                            problemBody += `${letter}. ${cleanText(choice)}\n`;
+                        });
+                    }
+                }
             }
+
+            md += `${problemBody}\n\n`;
 
             const sub = submissionMap[prob.id];
 

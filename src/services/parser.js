@@ -60,12 +60,29 @@ function generateMarkdown(setName, problemsByType) {
             const cleanTitle = cleanText(prob.title);
             md += `### ${index + 1}. ${label}${cleanTitle} ${score}${author}\n\n`;
             
-            if (prob.content) {
-                md += `${cleanText(prob.content)}\n\n`;
-            } else if (prob.description) {
-                md += `${cleanText(prob.description)}\n\n`;
+            // 1. Extract base content
+            let problemBody = prob.content ? cleanText(prob.content) : (prob.description ? cleanText(prob.description) : '');
+
+            // 2. Safely inject multiple choice options if they exist and are not already in the content
+            if (type === 'MULTIPLE_CHOICE' && prob.problemConfig && prob.problemConfig.multipleChoiceProblemConfig) {
+                const choices = prob.problemConfig.multipleChoiceProblemConfig.choices;
+                if (choices && Array.isArray(choices) && choices.length > 0) {
+                    
+                    // Regex heuristic: Check if the raw text already contains 'A.' or 'A、' at the start of a line
+                    const rawText = prob.content || prob.description || "";
+                    const hasEmbeddedChoices = /(^|\n|<br>|<p>)\s*A[\.、]\s/i.test(rawText);
+                    
+                    if (!hasEmbeddedChoices) {
+                        problemBody += '\n\n';
+                        choices.forEach((choice, i) => {
+                            const letter = String.fromCharCode(65 + i); // Convert 0 -> A, 1 -> B, etc.
+                            problemBody += `${letter}. ${cleanText(choice)}\n`;
+                        });
+                    }
+                }
             }
 
+            md += `${problemBody}\n\n`;
             md += `---\n\n`;
         });
     }
