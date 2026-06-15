@@ -15,7 +15,7 @@ function cleanText(text) {
     
     return text
         // 1. Bulletproof regex for PTA placeholders
-        .replace(/~?\s*@\[.*?\]\([^)]*\)/g, '\\_\\_\\_\\_\\_\\_')
+        .replace(/~?\s*@+\[.*?\]\([^)]*\)/g, '\\_\\_\\_\\_\\_\\_')
         
         // 2. Convert block math $$...$$ to inline math $...$
         .replace(/\$\$(.*?)\$\$/gs, '$$$1$$')
