@@ -68,6 +68,44 @@ async function downloadArchive(setId, setName) {
                     });
                 }
             } 
+            // Branch specifically for Fill-in-the-blank programming questions
+            else if (type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
+                const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_TYPE(examId, setId, type));
+                const subData = await subRes.json();
+                
+                if (subData.submission) {
+                    const s = subData.submission;
+                    const details = s.submissionDetails || [];
+                    const judges = s.judgeResponseContents || [];
+                    
+                    details.forEach(detail => {
+                        const pid = detail.problemSetProblemId;
+                        if (!submissionMap[pid]) submissionMap[pid] = {};
+                        
+                        if (detail.fillInTheBlankForProgrammingSubmissionDetail) {
+                            const answers = detail.fillInTheBlankForProgrammingSubmissionDetail.answers || [];
+                            // Convert the array of answers into a readable code-like block with comments
+                            submissionMap[pid].program = answers.map((ans, idx) => `/* Blank ${idx + 1} */\n${ans}`).join('\n\n');
+                        }
+                    });
+
+                    judges.forEach(judge => {
+                        const pid = judge.problemSetProblemId;
+                        if (!submissionMap[pid]) submissionMap[pid] = {};
+                        
+                        submissionMap[pid].status = judge.status;
+                        submissionMap[pid].score = judge.score;
+                        // Inherit global submission metrics for the problem
+                        submissionMap[pid].compiler = s.compiler || 'NO_COMPILER';
+                        submissionMap[pid].time = s.time || 0;
+                        submissionMap[pid].memory = s.memory || 0;
+                        
+                        if (judge.fillInTheBlankForProgrammingResponseContent) {
+                            submissionMap[pid].testcases = judge.fillInTheBlankForProgrammingResponseContent.contents || [];
+                        }
+                    });
+                }
+            }
             else if (type === 'PROGRAMMING') {
                 // Programming submissions must be fetched individually by problem ID
                 for (const prob of problems) {

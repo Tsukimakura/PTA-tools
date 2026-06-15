@@ -108,15 +108,15 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
                 md += `> **Your Answer:** ${sub.answer || 'N/A'}\n\n`;
             } 
-            else if (type === 'PROGRAMMING') {
+            else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
                 
-                md += `**Source Code:**\n`;
+                md += `**Source Code / Answers:**\n`;
                 const codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
                                  sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
                 md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
 
-                if (sub.testcases && Object.keys(sub.testcases).length > 0) {
+                if (type === 'PROGRAMMING' && sub.testcases && Object.keys(sub.testcases).length > 0) {
                     md += `**Test Case Breakdown:**\n`;
                     md += `| Case | Status | Score | Time (s) | Memory (KB) | Hint |\n`;
                     md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
@@ -128,6 +128,16 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                         const caseMem = caseData.memory !== undefined ? Math.round(caseData.memory / 1024) : '-';
                         md += `| ${caseId} | ${caseData.result} | ${caseScore} | ${caseTime} | ${caseMem} | ${hint} |\n`;
                     }
+                    md += `\n`;
+                } else if (type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' && Array.isArray(sub.testcases) && sub.testcases.length > 0) {
+                    md += `**Blank Evaluation Breakdown:**\n`;
+                    md += `| Blank | Status | Score |\n`;
+                    md += `| :--- | :--- | :--- |\n`;
+                    
+                    sub.testcases.forEach((caseData, idx) => {
+                        const caseScore = caseData.score !== undefined ? caseData.score : '-';
+                        md += `| ${idx + 1} | ${caseData.status} | ${caseScore} |\n`;
+                    });
                     md += `\n`;
                 }
             }
