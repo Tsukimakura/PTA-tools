@@ -123,7 +123,7 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
                 
-                md += `**Source Code / Answers:**\n`;
+                md += `**Your Answers:**\n`;
                 const codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
                                  sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
                 md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
