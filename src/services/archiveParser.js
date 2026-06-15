@@ -6,6 +6,8 @@ function cleanText(text) {
     if (!text) return '';
     
     return text
+        .replace(/这是.*?题模板。[\s\S]*?与评测代码对应的测试数据\*?（默认无）\*?\n?/g, '')
+
         // 1. Bulletproof regex for PTA placeholders
         .replace(/~?\s*@+\[.*?\]\([^)]*\)/g, '\\_\\_\\_\\_\\_\\_')
         
@@ -73,7 +75,11 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             
             md += `### ${index + 1}. ${label}${cleanText(prob.title)} ${maxScore}${author}\n\n`;
             
-            let problemBody = prob.content ? cleanText(prob.content) : (prob.description ? cleanText(prob.description) : '');
+            // Clean both fields first
+            let cleanContent = cleanText(prob.content);
+            let cleanDesc = cleanText(prob.description);
+            // If content is empty after stripping garbage, fallback to description securely
+            let problemBody = cleanContent.trim() ? cleanContent : cleanDesc;
 
             // Inject multiple choice options with double newlines
             if (type === 'MULTIPLE_CHOICE' && prob.problemConfig && prob.problemConfig.multipleChoiceProblemConfig) {
