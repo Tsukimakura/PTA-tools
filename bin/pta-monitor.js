@@ -84,21 +84,33 @@ async function checkPTAStatus() {
         // First Run: Create file and send Markdown summary
         if (!fs.existsSync(STATUS_FILE)) {
             const title = "PTA Monitor: Data Initialization";
-            let initialMessage = "### PTA Monitor Data Initialization\nInitial data cache created successfully.\n\n---\n\n#### All Monitored Sets\n\n";
+            let initialMessage = "### PTA Monitor Data Initialization\nInitial data cache created successfully.\n\n---\n\n#### Currently ONGOING\n\n";
 
-            const setsBlocks = currentProblemSets.map(set => {
+            let ongoingBlocks = [];
+
+            currentProblemSets.forEach(set => {
                 const realStatus = calculateRealStatus(set.startAt, set.endAt);
-                // Cache startAt and endAt for offline status calculation
+                
+                // Cache ALL sets to ensure future diffing works correctly
                 lastStatus[set.id] = { 
                     status: realStatus, 
                     name: set.name,
                     startAt: set.startAt,
                     endAt: set.endAt
                 };
-                return formatSetInfo(set, realStatus);
+                
+                // Only add to the notification message if the status is ONGOING
+                if (realStatus === 'ONGOING') {
+                    ongoingBlocks.push(formatSetInfo(set, realStatus));
+                }
             });
 
-            initialMessage += setsBlocks.join("\n\n---\n\n");
+            // Append ongoing blocks or a fallback message if none exist
+            if (ongoingBlocks.length > 0) {
+                initialMessage += ongoingBlocks.join("\n\n---\n\n");
+            } else {
+                initialMessage += "> *No ongoing problem sets at the moment.*\n";
+            }
 
             fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
             console.log("[INFO] Data initialization completed. Status saved to local file.");
