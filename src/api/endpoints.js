@@ -2,9 +2,11 @@
  * Returns the relevant API endpoints.
  */
 function getEndpoints() {
-    // Generate dynamic filter based on current UTC time to capture ongoing and upcoming sets
-    const now = new Date().toISOString();
-    const filterParams = JSON.stringify({ endAtAfter: now });
+    // Use a 7-day buffer instead of strictly 'now', allowing the monitor to capture their real ENDED status and exact timestamps.
+    const bufferDate = new Date();
+    bufferDate.setDate(bufferDate.getDate() - 7);
+    
+    const filterParams = JSON.stringify({ endAtAfter: bufferDate.toISOString() });
     const encodedFilter = encodeURIComponent(filterParams);
 
     return {
@@ -24,11 +26,7 @@ function getEndpoints() {
         // Fetch actual problems by specific type and exam session
         EXAM_PROBLEMS: (setId, examId, type) => `https://pintia.cn/api/problem-sets/${setId}/exam-problems?exam_id=${examId}&problem_type=${type}`,
 
-        // Fetch the completion status of every problem
-        PROBLEM_STATUS: (examId, setId) => 
-            `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/problem-status`,
-
-        // New endpoints for Archive and Report features
+        // Endpoints for Archive and Report features
         COMMON_RANKINGS: (setId, userId) => 
             `https://pintia.cn/api/problem-sets/${setId}/common-rankings?target_user_id=${userId}`,
             

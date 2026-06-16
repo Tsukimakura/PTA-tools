@@ -88,7 +88,13 @@ async function checkPTAStatus() {
 
             const setsBlocks = currentProblemSets.map(set => {
                 const realStatus = calculateRealStatus(set.startAt, set.endAt);
-                lastStatus[set.id] = { status: realStatus, name: set.name };
+                // Cache startAt and endAt for offline status calculation
+                lastStatus[set.id] = { 
+                    status: realStatus, 
+                    name: set.name,
+                    startAt: set.startAt,
+                    endAt: set.endAt
+                };
                 return formatSetInfo(set, realStatus);
             });
 
@@ -106,20 +112,57 @@ async function checkPTAStatus() {
         let hasChange = false;
         let changeMessages = [];
 
+        // 1. Check problem sets currently returned by the API
         currentProblemSets.forEach(set => {
             const realStatus = calculateRealStatus(set.startAt, set.endAt);
             const oldData = lastStatus[set.id];
 
             if (!oldData) {
+                // New problem set detected
                 hasChange = true;
                 changeMessages.push(`**[NEW SET DETECTED]**\n${formatSetInfo(set, realStatus)}`);
-                lastStatus[set.id] = { status: realStatus, name: set.name };
-            } else if (oldData.status !== realStatus) {
-                hasChange = true;
-                changeMessages.push(`**[STATUS UPDATE: \`${oldData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(set, realStatus)}`);
-                lastStatus[set.id].status = realStatus;
+                lastStatus[set.id] = { 
+                    status: realStatus, 
+                    name: set.name,
+                    startAt: set.startAt,
+                    endAt: set.endAt
+                };
+            } else {
+                // Always sync the real server timestamps into cache
+                lastStatus[set.id].startAt = set.startAt;
+                lastStatus[set.id].endAt = set.endAt;
+
+                if (oldData.status !== realStatus) {
+                    // Status change detected (e.g., ONGOING -> ENDED)
+                    hasChange = true;
+                    changeMessages.push(`**[STATUS UPDATE: \`${oldData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(set, realStatus)}`);
+                    lastStatus[set.id].status = realStatus;
+                }
             }
         });
+
+        // 2. Check for items in cache that dropped out of the API response completely
+        for (const [id, cachedData] of Object.entries(lastStatus)) {
+            const existsInCurrent = currentProblemSets.find(s => s.id === id);
+            
+            if (!existsInCurrent) {
+                const realStatus = 'ENDED';
+                
+                if (cachedData.status !== realStatus) {
+                    hasChange = true;
+                    
+                    // Build mock set using cached dates to prevent "current time" bug
+                    const mockSet = { 
+                        name: cachedData.name, 
+                        startAt: cachedData.startAt || "UNDETECTED, use cli to check", 
+                        endAt: cachedData.endAt || "UNDETECTED, use cli to check" 
+                    };
+                    
+                    changeMessages.push(`**[STATUS UPDATE: \`${cachedData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(mockSet, realStatus)}`);
+                    lastStatus[id].status = realStatus;
+                }
+            }
+        }
 
         // Notification: Send formatted Markdown report
         if (hasChange) {
