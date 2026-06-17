@@ -3,19 +3,15 @@ const path = require('path');
 const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateArchiveMarkdown } = require('./archiveParser');
+const { ensureExamSession } = require('./examSession');
 
 async function downloadArchive(setId, setName) {
     const endpoints = getEndpoints();
     console.log(`\n[INFO] Initializing Archive Engine for: ${setName}...`);
 
     try {
-        // 1. Get Exam Session
-        const sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-        const sessionData = await sessionRes.json();
-        
-        if (!sessionData.exam || !sessionData.exam.id) {
-            throw new Error("Failed to obtain exam_id. Ensure the exam is accessible.");
-        }
+        // 1. Use interceptor to get or start Exam Session
+        const sessionData = await ensureExamSession(setId, setName);
         const examId = sessionData.exam.id;
 
         // 2. Fetch Problem Summaries

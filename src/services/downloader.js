@@ -3,6 +3,7 @@ const path = require('path');
 const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateMarkdown } = require('./parser');
+const { ensureExamSession } = require('./examSession');
 
 /**
  * Fetch all problem sets available to the user, handling API pagination automatically.
@@ -63,15 +64,9 @@ async function downloadProblemSet(setId, setName) {
     console.log(`\n[INFO] Initializing exam session for: ${setName}...`);
 
     try {
-        // 1. Trigger Exam Session to get exam_id
-        const sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-        const sessionData = await sessionRes.json();
-        
-        if (!sessionData.exam || !sessionData.exam.id) {
-            throw new Error("Failed to obtain exam_id. You might not have permission or the set is not open.");
-        }
+        // 1. Use interceptor to get or start Exam Session
+        const sessionData = await ensureExamSession(setId, setName);
         const examId = sessionData.exam.id;
-        console.log(`[INFO] Session established. Exam ID: ${examId}`);
 
         // 2. Fetch Problem Summaries (to know what types of problems exist)
         console.log("[INFO] Fetching problem type summaries...");

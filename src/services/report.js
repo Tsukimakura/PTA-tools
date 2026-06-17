@@ -1,6 +1,7 @@
 const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { calculateRealStatus } = require('../utils/helpers');
+const { ensureExamSession } = require('./examSession');
 
 /**
  * Fallback function to print basic info if advanced data fails
@@ -26,13 +27,8 @@ async function generateOngoingInfo(selectedSet) {
     console.log(`\n[INFO] Fetching real-time progress for: ${selectedSet.name}...`);
 
     try {
-        // 1. Get Exam Session to retrieve dynamic IDs
-        const sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-        const sessionData = await sessionRes.json();
-
-        if (sessionData.error || !sessionData.exam || !sessionData.exam.id) {
-            throw new Error("Exam session unavailable or not started.");
-        }
+        // 1. Use interceptor to get or start Exam Session
+        const sessionData = await ensureExamSession(setId, selectedSet.name);
 
         const examId = sessionData.exam.id;
         const userId = sessionData.exam.userId;
@@ -109,7 +105,11 @@ async function generateOngoingInfo(selectedSet) {
         console.log("========================================\n");
 
     } catch (error) {
-        // Fallback to basic view if the exam strictly prevents data fetching before the user formally enters it
+        if (error.message === "USER_CANCELED") {
+            console.log("[INFO] Start canceled. Falling back to basic info.");
+            printBasicInfo(selectedSet);
+            return;
+        }
         console.log(`[WARN] Advanced progress unavailable (${error.message}). Falling back to basic info.`);
         printBasicInfo(selectedSet);
     }
@@ -125,13 +125,8 @@ async function generateTerminalReport(setId, setName) {
     console.log(`\n[INFO] Fetching report data for: ${setName}...`);
 
     try {
-        // 1. Get Exam Session to retrieve exam_id, user_id, and student info
-        const sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-        const sessionData = await sessionRes.json();
-
-        if (!sessionData.exam || !sessionData.exam.id) {
-            throw new Error("Failed to obtain exam session data.");
-        }
+        // 1. Use interceptor to get Exam Session
+        const sessionData = await ensureExamSession(setId, setName);
 
         const userId = sessionData.exam.userId;
         const studentName = sessionData.exam.studentUser.name;
@@ -180,6 +175,10 @@ async function generateTerminalReport(setId, setName) {
         console.log("========================================\n");
 
     } catch (error) {
+        if (error.message === "USER_CANCELED") {
+            console.log("[INFO] Operation canceled by user.");
+            return;
+        }
         console.error(`[ERROR] Failed to generate report: ${error.message}`);
     }
 }
