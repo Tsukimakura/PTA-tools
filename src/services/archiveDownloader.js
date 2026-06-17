@@ -102,8 +102,8 @@ async function downloadArchive(setId, setName) {
                     });
                 }
             }
-            else if (type === 'PROGRAMMING') {
-                // Programming submissions must be fetched individually by problem ID
+            else if (type === 'PROGRAMMING' || type === 'CODE_COMPLETION') {
+                // Programming and Code Completion submissions should be fetched individually by problem ID
                 for (const prob of problems) {
                     const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, prob.id));
                     const subData = await subRes.json();
@@ -113,14 +113,26 @@ async function downloadArchive(setId, setName) {
                         const detail = s.submissionDetails && s.submissionDetails.length > 0 ? s.submissionDetails[0] : null;
                         const judge = s.judgeResponseContents && s.judgeResponseContents.length > 0 ? s.judgeResponseContents[0] : null;
                         
+                        let programData = 'NO CODE EXPORTED';
+                        let testcasesData = {};
+
+                        // Dynamically extract based on the exact problem type payload
+                        if (type === 'PROGRAMMING') {
+                            programData = detail && detail.programmingSubmissionDetail ? detail.programmingSubmissionDetail.program : 'NO CODE EXPORTED';
+                            testcasesData = judge && judge.programmingJudgeResponseContent ? judge.programmingJudgeResponseContent.testcaseJudgeResults : {};
+                        } else if (type === 'CODE_COMPLETION') {
+                            programData = detail && detail.codeCompletionSubmissionDetail ? detail.codeCompletionSubmissionDetail.program : 'NO CODE EXPORTED';
+                            testcasesData = judge && judge.codeCompletionJudgeResponseContent ? judge.codeCompletionJudgeResponseContent.testcaseJudgeResults : {};
+                        }
+                        
                         submissionMap[prob.id] = {
                             status: s.status,
                             score: s.score,
-                            time: s.time,
-                            memory: s.memory,
-                            compiler: s.compiler,
-                            program: detail && detail.programmingSubmissionDetail ? detail.programmingSubmissionDetail.program : 'NO CODE EXPORTED',
-                            testcases: judge && judge.programmingJudgeResponseContent ? judge.programmingJudgeResponseContent.testcaseJudgeResults : {},
+                            time: s.time || 0,
+                            memory: s.memory || 0,
+                            compiler: s.compiler || 'NO_COMPILER',
+                            program: programData,
+                            testcases: testcasesData,
                             hints: s.hints || {}
                         };
                     }

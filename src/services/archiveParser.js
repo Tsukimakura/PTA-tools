@@ -120,15 +120,16 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
                 md += `> **Your Answer:** ${sub.answer || 'N/A'}\n\n`;
             } 
-            else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
+            else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' || type === 'CODE_COMPLETION') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
                 
-                md += `**Your Answers:**\n`;
+                md += `**Your Answer:**\n`;
                 const codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
                                  sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
                 md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
 
-                if (type === 'PROGRAMMING' && sub.testcases && Object.keys(sub.testcases).length > 0) {
+                // Both PROGRAMMING and CODE_COMPLETION share the same test case structure
+                if ((type === 'PROGRAMMING' || type === 'CODE_COMPLETION') && sub.testcases && Object.keys(sub.testcases).length > 0) {
                     md += `**Test Case Breakdown:**\n`;
                     md += `| Case | Status | Score | Time (s) | Memory (KB) | Hint |\n`;
                     md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
@@ -141,7 +142,9 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                         md += `| ${caseId} | ${caseData.result} | ${caseScore} | ${caseTime} | ${caseMem} | ${hint} |\n`;
                     }
                     md += `\n`;
-                } else if (type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' && Array.isArray(sub.testcases) && sub.testcases.length > 0) {
+                } 
+                // Fill-in-the-blank programming uses an array structure for evaluating each blank
+                else if (type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' && Array.isArray(sub.testcases) && sub.testcases.length > 0) {
                     md += `**Blank Evaluation Breakdown:**\n`;
                     md += `| Blank | Status | Score |\n`;
                     md += `| :--- | :--- | :--- |\n`;
