@@ -6,8 +6,9 @@ function cleanText(text) {
     if (!text) return '';
     
     return text
-        // 1. Strip useless PTA default rich-text editor templates
+        // 1. Strip useless PTA default rich-text editor templates (Standard & Multi-file)
         .replace(/这是.*?题模板。[\s\S]*?与评测代码对应的测试数据\*?（默认无）\*?\n?/g, '')
+        .replace(/这是一个多文件编程题的样例。请在这里写题目描述。\n?/g, '')
         
         // 2. Fix explicit PTA placeholders (@[] or @@[]) - Use raw underscores, NO escaping needed for code blocks
         .replace(/~?\s*@+\[.*?\]\([^)]*\)/g, '______')
@@ -20,7 +21,7 @@ function cleanText(text) {
         // 4. Convert block math $$...$$ to inline math $...$
         .replace(/\$\$(.*?)\$\$/gs, '$$$1$$')
         
-        // 5. Fix relative image URLs to absolute URLs (Specific to archiveParser, harmless in parser)
+        // 5. Fix relative image URLs to absolute URLs
         .replace(/\]\(~\//g, '](https://images.ptausercontent.com/')
         
         // 6. Ensure spaces around inline math $...$ (avoiding punctuation boundaries)
