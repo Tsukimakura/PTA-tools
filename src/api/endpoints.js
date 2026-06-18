@@ -38,7 +38,11 @@ function getEndpoints() {
             `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/last-submissions?problem_type=${type}`,
             
         LAST_SUBMISSIONS_BY_PROBLEM: (examId, setId, problemId) => 
-            `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/last-submissions?problem_set_problem_id=${problemId}`
+            `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/last-submissions?problem_set_problem_id=${problemId}`,
+
+        // Endpoint to get the download URL of a submitted file (for MULTIPLE_FILE)
+        SUBMISSION_FILE_URL: (submissionId) => 
+            `https://pintia.cn/api/submissions/${submissionId}/file-url?preview_submission=false`
     };
 }
 
