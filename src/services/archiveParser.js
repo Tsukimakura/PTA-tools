@@ -123,6 +123,11 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' || type === 'CODE_COMPLETION' || type === 'MULTIPLE_FILE') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
                 
+                // Inject download link if it exists (primarily for MULTIPLE_FILE)
+                if (sub.downloadInfo && sub.downloadInfo.url) {
+                    md += `> **Attachment:** [Download \`${sub.downloadInfo.fileName}\`](${sub.downloadInfo.url})\n\n`;
+                }
+
                 md += `**Your Answer:**\n`;
                 let codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
                                sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';

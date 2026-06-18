@@ -129,6 +129,21 @@ async function downloadArchive(setId, setName) {
                                 const files = detail.multipleFileSubmissionDetail.files || [];
                                 const fileList = files.map(f => `- ${f.path}`).join('\n');
                                 programData = `/* MULTIPLE FILE SUBMISSION */\n/* Submitted files structure: */\n${fileList}`;
+
+                                // Fetch the actual download URL for the submitted zip file
+                                try {
+                                    const urlRes = await ptaFetch(endpoints.SUBMISSION_FILE_URL(s.id));
+                                    const urlData = await urlRes.json();
+                                    
+                                    if (urlData && urlData.url) {
+                                        s.downloadInfo = {
+                                            url: urlData.url,
+                                            fileName: urlData.fileName || 'submission.zip'
+                                        };
+                                    }
+                                } catch (e) {
+                                    console.warn(`[WARN] Failed to fetch download URL for submission ${s.id}`);
+                                }
                             }
                             // Extract judge standard output and test info
                             if (judge && judge.multipleFileJudgeResponseContent) {
@@ -147,7 +162,8 @@ async function downloadArchive(setId, setName) {
                             compiler: s.compiler || 'NO_COMPILER',
                             program: programData,
                             testcases: testcasesData,
-                            hints: s.hints || {}
+                            hints: s.hints || {},
+                            downloadInfo: s.downloadInfo || null // Save download info to map
                         };
                     }
                     await new Promise(r => setTimeout(r, 150)); // Prevent rate-limiting
