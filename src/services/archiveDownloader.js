@@ -102,8 +102,8 @@ async function downloadArchive(setId, setName) {
                     });
                 }
             }
-            else if (type === 'PROGRAMMING' || type === 'CODE_COMPLETION') {
-                // Programming and Code Completion submissions should be fetched individually by problem ID
+            else if (type === 'PROGRAMMING' || type === 'CODE_COMPLETION' || type === 'MULTIPLE_FILE') {
+                // These submission types should be fetched individually by problem ID
                 for (const prob of problems) {
                     const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, prob.id));
                     const subData = await subRes.json();
@@ -123,6 +123,20 @@ async function downloadArchive(setId, setName) {
                         } else if (type === 'CODE_COMPLETION') {
                             programData = detail && detail.codeCompletionSubmissionDetail ? detail.codeCompletionSubmissionDetail.program : 'NO CODE EXPORTED';
                             testcasesData = judge && judge.codeCompletionJudgeResponseContent ? judge.codeCompletionJudgeResponseContent.testcaseJudgeResults : {};
+                        } else if (type === 'MULTIPLE_FILE') {
+                            // Multiple file answers are submitted as a zip. Extract the file tree for markdown display.
+                            if (detail && detail.multipleFileSubmissionDetail) {
+                                const files = detail.multipleFileSubmissionDetail.files || [];
+                                const fileList = files.map(f => `- ${f.path}`).join('\n');
+                                programData = `/* MULTIPLE FILE SUBMISSION */\n/* Submitted files structure: */\n${fileList}`;
+                            }
+                            // Extract judge standard output and test info
+                            if (judge && judge.multipleFileJudgeResponseContent) {
+                                testcasesData = {
+                                    stdout: judge.multipleFileJudgeResponseContent.stdout || '',
+                                    info: judge.multipleFileJudgeResponseContent.info || ''
+                                };
+                            }
                         }
                         
                         submissionMap[prob.id] = {

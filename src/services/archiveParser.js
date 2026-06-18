@@ -120,12 +120,16 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
             if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
                 md += `> **Your Answer:** ${sub.answer || 'N/A'}\n\n`;
             } 
-            else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' || type === 'CODE_COMPLETION') {
+            else if (type === 'PROGRAMMING' || type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' || type === 'CODE_COMPLETION' || type === 'MULTIPLE_FILE') {
                 md += `**Compiler:** ${sub.compiler} | **Max Time:** ${sub.time}s | **Max Memory:** ${Math.round(sub.memory / 1024)}KB\n\n`;
                 
                 md += `**Your Answer:**\n`;
-                const codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
-                                 sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
+                let codeLang = sub.compiler.toLowerCase().includes('gcc') || sub.compiler.toLowerCase().includes('clang') ? 'c' : 
+                               sub.compiler.toLowerCase().includes('gxx') ? 'cpp' : '';
+                
+                // Use plain text formatting for the multiple file list
+                if (type === 'MULTIPLE_FILE') codeLang = 'text'; 
+                
                 md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
 
                 // Both PROGRAMMING and CODE_COMPLETION share the same test case structure
@@ -154,6 +158,16 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                         md += `| ${idx + 1} | ${caseData.status} | ${caseScore} |\n`;
                     });
                     md += `\n`;
+                }
+                // Multiple file questions return raw stdout and judge info
+                else if (type === 'MULTIPLE_FILE' && sub.testcases && (sub.testcases.stdout || sub.testcases.info)) {
+                    md += `**Judge Output:**\n\n`;
+                    if (sub.testcases.stdout) {
+                        md += `*stdout:*\n\`\`\`text\n${sub.testcases.stdout.trim()}\n\`\`\`\n\n`;
+                    }
+                    if (sub.testcases.info) {
+                        md += `*info:*\n\`\`\`text\n${sub.testcases.info.trim()}\n\`\`\`\n\n`;
+                    }
                 }
             }
             
