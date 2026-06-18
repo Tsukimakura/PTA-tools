@@ -124,11 +124,25 @@ async function downloadArchive(setId, setName) {
                             programData = detail && detail.codeCompletionSubmissionDetail ? detail.codeCompletionSubmissionDetail.program : 'NO CODE EXPORTED';
                             testcasesData = judge && judge.codeCompletionJudgeResponseContent ? judge.codeCompletionJudgeResponseContent.testcaseJudgeResults : {};
                         } else if (type === 'MULTIPLE_FILE') {
-                            // Multiple file answers are submitted as a zip. Extract the file tree for markdown display.
+                            // Multiple file answers can be submitted as a zip or as inline file contents
                             if (detail && detail.multipleFileSubmissionDetail) {
                                 const files = detail.multipleFileSubmissionDetail.files || [];
-                                const fileList = files.map(f => `- ${f.path}`).join('\n');
-                                programData = `/* MULTIPLE FILE SUBMISSION */\n/* Submitted files structure: */\n${fileList}`;
+                                const fileContents = detail.multipleFileSubmissionDetail.fileContents || {};
+
+                                if (Object.keys(fileContents).length > 0) {
+                                    // Inline contents exist (often used for assembly or crypto (blackwhite's courses))
+                                    let contentBlocks = [];
+                                    for (const [filePath, content] of Object.entries(fileContents)) {
+                                        contentBlocks.push(`/* --- File: ${filePath} --- */\n${content.trim()}`);
+                                    }
+                                    programData = `/* MULTIPLE FILE SUBMISSION (Inline Contents) */\n\n${contentBlocks.join('\n\n')}`;
+                                } else if (files.length > 0) {
+                                    // Standard zip submission without inline contents
+                                    const fileList = files.map(f => `- ${f.path}`).join('\n');
+                                    programData = `/* MULTIPLE FILE SUBMISSION */\n/* Submitted files structure: */\n${fileList}`;
+                                } else {
+                                    programData = `/* MULTIPLE FILE SUBMISSION */\n/* No files found in submission. */`;
+                                }
 
                                 // Fetch the actual download URL for the submitted zip file
                                 try {
@@ -145,6 +159,7 @@ async function downloadArchive(setId, setName) {
                                     console.warn(`[WARN] Failed to fetch download URL for submission ${s.id}`);
                                 }
                             }
+                            
                             // Extract judge standard output and test info
                             if (judge && judge.multipleFileJudgeResponseContent) {
                                 testcasesData = {
