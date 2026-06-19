@@ -53,9 +53,10 @@ function cleanText(text) {
  * Generate beautifully formatted Markdown from PTA problem data
  * @param {string} setName - Name of the problem set
  * @param {object} problemsByType - Dictionary of problems grouped by type
+ * @param {object} [savedAnswersMap] - Optional map of currently saved answers
  * @returns {string} Formatted Markdown content
  */
-function generateMarkdown(setName, problemsByType) {
+function generateMarkdown(setName, problemsByType, savedAnswersMap = {}) {
     let md = `# ${setName}\n\n`;
 
     for (const [type, problems] of Object.entries(problemsByType)) {
@@ -81,7 +82,6 @@ function generateMarkdown(setName, problemsByType) {
             if (type === 'MULTIPLE_CHOICE' && prob.problemConfig && prob.problemConfig.multipleChoiceProblemConfig) {
                 const choices = prob.problemConfig.multipleChoiceProblemConfig.choices;
                 if (choices && Array.isArray(choices) && choices.length > 0) {
-                    
                     const rawText = prob.content || prob.description || "";
                     const hasEmbeddedChoices = /(^|\n|<br>|<p>)\s*A[\.、]\s/i.test(rawText);
                     
@@ -96,6 +96,19 @@ function generateMarkdown(setName, problemsByType) {
             }
 
             md += `${problemBody}\n\n`;
+
+            // Inject saved answers for ONGOING progress downloads
+            if (savedAnswersMap && savedAnswersMap[prob.id]) {
+                const ans = savedAnswersMap[prob.id];
+                md += `> **[ Current Saved Answer ]**\n`;
+                if (ans.includes('\n')) {
+                    // Properly format multi-line answers (like code) into the blockquote
+                    md += `> \`\`\`text\n> ${ans.replace(/\n/g, '\n> ')}\n> \`\`\`\n\n`;
+                } else {
+                    md += `> \`${ans}\`\n\n`;
+                }
+            }
+
             md += `---\n\n`;
         });
     }

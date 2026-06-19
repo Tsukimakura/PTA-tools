@@ -2,7 +2,7 @@ const inquirer = require('inquirer');
 const { getCookieViaBrowser } = require('../src/auth/authManager');
 const { getConfig, updateCookie } = require('../src/utils/config');
 const { calculateRealStatus } = require('../src/utils/helpers');
-const { fetchAllProblemSets, downloadProblemSet } = require('../src/services/downloader');
+const { fetchAllProblemSets, downloadProblemSet, downloadOngoingProgress } = require('../src/services/downloader');
 const { generateTerminalReport, generateOngoingInfo } = require('../src/services/report');
 const { downloadArchive } = require('../src/services/archiveDownloader');
 
@@ -20,6 +20,7 @@ async function handleOngoingSet(selectedSet) {
             choices: [
                 { name: 'View Real-time Progress', value: 'INFO' },
                 { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
+                { name: 'Download Current Progress (With Saved Answers)', value: 'DOWNLOAD_PROGRESS' },
                 { name: '< Back to Main Menu', value: 'BACK' }
             ]
         }
@@ -30,6 +31,8 @@ async function handleOngoingSet(selectedSet) {
     } else if (action === 'DOWNLOAD_CLEAN') {
         console.log(`[INFO] Starting clean download workflow for: ${selectedSet.name}`);
         await downloadProblemSet(selectedSet.id, selectedSet.name);
+    } else if (action === 'DOWNLOAD_PROGRESS') {
+        await downloadOngoingProgress(selectedSet.id, selectedSet.name);
     }
 }
 
