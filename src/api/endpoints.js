@@ -30,6 +30,10 @@ function getEndpoints() {
         PROBLEM_STATUS: (examId, setId) => 
             `https://pintia.cn/api/exams/${examId}/problem-sets/${setId}/problem-status`,
 
+        // Endpoint to submit answers
+        SUBMIT_EXAM: (examId) => 
+            `https://pintia.cn/api/exams/${examId}/exam-submissions`,
+
         // Endpoints for Archive and Report features
         COMMON_RANKINGS: (setId, userId) => 
             `https://pintia.cn/api/problem-sets/${setId}/common-rankings?target_user_id=${userId}`,

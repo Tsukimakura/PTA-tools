@@ -5,6 +5,7 @@ const { calculateRealStatus } = require('../src/utils/helpers');
 const { fetchAllProblemSets, downloadProblemSet, downloadOngoingProgress } = require('../src/services/downloader');
 const { generateTerminalReport, generateOngoingInfo } = require('../src/services/report');
 const { downloadArchive } = require('../src/services/archiveDownloader');
+const { handleSubmissionDispatcher } = require('../src/services/submitter');
 
 /**
  * Handle operations for ongoing or pending problem sets
@@ -21,6 +22,7 @@ async function handleOngoingSet(selectedSet) {
                 { name: 'View Real-time Progress', value: 'INFO' },
                 { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
                 { name: 'Download Current Progress (With Saved Answers)', value: 'DOWNLOAD_PROGRESS' },
+                { name: 'Submit Answers (Interactive CLI)', value: 'SUBMIT_OBJECTIVE' },
                 { name: '< Back to Main Menu', value: 'BACK' }
             ]
         }
@@ -33,6 +35,8 @@ async function handleOngoingSet(selectedSet) {
         await downloadProblemSet(selectedSet.id, selectedSet.name);
     } else if (action === 'DOWNLOAD_PROGRESS') {
         await downloadOngoingProgress(selectedSet.id, selectedSet.name);
+    } else if (action === 'SUBMIT_OBJECTIVE') {
+        await handleSubmissionDispatcher(selectedSet);
     }
 }
 
