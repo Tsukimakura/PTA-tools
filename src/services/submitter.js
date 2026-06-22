@@ -22,8 +22,12 @@ function formatAnswerForMenu(ans, problemType) {
     if (ans === undefined || ans === null || ans === 'UNANSWERED') return 'UNANSWERED';
     
     if (problemType === 'CODE_COMPLETION' || problemType === 'PROGRAMMING') {
-        const byteSize = Buffer.byteLength(ans, 'utf8');
-        return `[Code Loaded: ${byteSize} bytes]`;
+        if (typeof ans === 'object' && ans.program !== undefined) {
+            const byteSize = Buffer.byteLength(ans.program, 'utf8');
+            return `[Code: ${byteSize} bytes | Compiler: ${ans.compiler}]`;
+        }
+        // Fallback safety
+        return `[Code Loaded]`;
     }
 
     let displayAns = ans;
@@ -168,9 +172,15 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                 } else if (problemType === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' && detail.fillInTheBlankForProgrammingSubmissionDetail) {
                     existingAnswers[pid] = detail.fillInTheBlankForProgrammingSubmissionDetail.answers || [];
                 } else if (problemType === 'CODE_COMPLETION' && detail.codeCompletionSubmissionDetail) {
-                    existingAnswers[pid] = detail.codeCompletionSubmissionDetail.program || "";
+                    existingAnswers[pid] = {
+                        program: detail.codeCompletionSubmissionDetail.program || "",
+                        compiler: detail.codeCompletionSubmissionDetail.compiler || "NO_COMPILER"
+                    };
                 } else if (problemType === 'PROGRAMMING' && detail.programmingSubmissionDetail) {
-                    existingAnswers[pid] = detail.programmingSubmissionDetail.program || "";
+                    existingAnswers[pid] = {
+                        program: detail.programmingSubmissionDetail.program || "",
+                        compiler: detail.programmingSubmissionDetail.compiler || "NO_COMPILER"
+                    };
                 }
             });
         }
@@ -329,8 +339,32 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                         continue;
                     }
 
-                    // Store content and show success feedback
-                    stagedAnswers[targetProb.id] = codeContent;
+                    // Prompt for compiler selection
+                    let previousCompiler = 'GCC';
+                    if (currentEffectiveAns && currentEffectiveAns.compiler && currentEffectiveAns.compiler !== 'NO_COMPILER') {
+                        previousCompiler = currentEffectiveAns.compiler;
+                    }
+
+                    const { compilerChoice } = await inquirer.prompt([
+                        {
+                            type: 'list',
+                            name: 'compilerChoice',
+                            message: 'Select the compiler environment:',
+                            choices: [
+                                'GCC', 'GXX', 'CLANG', 'CLANGXX', 
+                                'PYTHON3', 'JAVA', 'JAVASCRIPT', 'GO'
+                            ],
+                            default: previousCompiler,
+                            prefix: '>'
+                        }
+                    ]);
+
+                    // Store both program content and compiler selection
+                    stagedAnswers[targetProb.id] = {
+                        program: codeContent,
+                        compiler: compilerChoice
+                    };
+                    
                     console.log(`[SUCCESS] Loaded ${Buffer.byteLength(codeContent, 'utf8')} bytes from: ${absolutePath}`);
                     
                     // Show a quick preview of the first 3 lines
@@ -365,9 +399,15 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
             } else if (problemType === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 detailObj.fillInTheBlankForProgrammingSubmissionDetail = { answers: ans };
             } else if (problemType === 'CODE_COMPLETION') {
-                detailObj.codeCompletionSubmissionDetail = { program: ans };
+                detailObj.codeCompletionSubmissionDetail = {
+                    program: ans.program,
+                    compiler: ans.compiler
+                };
             } else if (problemType === 'PROGRAMMING') {
-                detailObj.programmingSubmissionDetail = { program: ans };
+                detailObj.programmingSubmissionDetail = {
+                    program: ans.program,
+                    compiler: ans.compiler
+                };
             }
             
             detailsPayload.push(detailObj);
