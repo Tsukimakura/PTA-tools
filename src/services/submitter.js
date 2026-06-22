@@ -65,7 +65,7 @@ async function pollJudgeResult(examId, setId, probId, maxRetries = 15) {
 }
 
 /**
- * Print detailed testcase results in a formatted ASCII table
+ * Print detailed testcase results and compiler output in a formatted ASCII table
  */
 function printJudgeReport(probTitle, submissionData) {
     console.log(`\n--- Judge Report: ${probTitle} ---`);
@@ -77,7 +77,32 @@ function printJudgeReport(probTitle, submissionData) {
         return;
     }
 
-    const testcases = judges[0].testcaseJudgeResults || (judges[0].codeCompletionJudgeResponseContent ? judges[0].codeCompletionJudgeResponseContent.testcaseJudgeResults : null);
+    const judgeData = judges[0];
+    let compilationLog = "";
+    let testcases = null;
+
+    // Extract data dynamically based on the specific judge response structure
+    if (judgeData.codeCompletionJudgeResponseContent) {
+        const compRes = judgeData.codeCompletionJudgeResponseContent.compilationResult;
+        compilationLog = compRes ? (compRes.log || "") : "";
+        testcases = judgeData.codeCompletionJudgeResponseContent.testcaseJudgeResults;
+    } else if (judgeData.programmingJudgeResponseContent) {
+        const compRes = judgeData.programmingJudgeResponseContent.compilationResult;
+        compilationLog = compRes ? (compRes.log || "") : "";
+        testcases = judgeData.programmingJudgeResponseContent.testcaseJudgeResults;
+    } else {
+        // Fallback for objective questions or other types
+        testcases = judgeData.testcaseJudgeResults;
+    }
+
+    // Display Compiler Output if it exists
+    if (compilationLog.trim() !== "") {
+        console.log("\n[ Compiler Output ]");
+        console.log("".padEnd(85, "-"));
+        console.log(compilationLog.trim());
+        console.log("".padEnd(85, "-") + "\n");
+    }
+
     const hints = submissionData.hints || {};
 
     if (!testcases) {
@@ -85,9 +110,9 @@ function printJudgeReport(probTitle, submissionData) {
         return;
     }
 
-    console.log( "".padEnd(85, "-") );
+    console.log("".padEnd(85, "-"));
     console.log(`| ${"Case".padEnd(4)} | ${"Status".padEnd(18)} | ${"Score".padEnd(5)} | ${"Time(s)".padEnd(7)} | ${"Mem(KB)".padEnd(7)} | ${"Hint"}`);
-    console.log( "".padEnd(85, "-") );
+    console.log("".padEnd(85, "-"));
 
     for (const [caseId, caseData] of Object.entries(testcases)) {
         const status = caseData.result || "UNKNOWN";
@@ -101,7 +126,7 @@ function printJudgeReport(probTitle, submissionData) {
 
         console.log(`| ${caseId.padEnd(4)} | ${status.padEnd(18)} | ${score.padEnd(5)} | ${time.padEnd(7)} | ${mem.padEnd(7)} | ${displayHint}`);
     }
-    console.log( "".padEnd(85, "-") + "\n" );
+    console.log("".padEnd(85, "-") + "\n");
 }
 
 /**
