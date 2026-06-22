@@ -12,31 +12,38 @@ const { handleSubmissionDispatcher } = require('../src/services/submitter');
  * @param {object} selectedSet - The full problem set object
  */
 async function handleOngoingSet(selectedSet) {
-    const { action } = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'action',
-            message: `Select an action for [ONGOING/PENDING] ${selectedSet.name}:`,
-            prefix: '>',
-            choices: [
-                { name: 'View Real-time Progress', value: 'INFO' },
-                { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
-                { name: 'Download Current Progress (With Saved Answers)', value: 'DOWNLOAD_PROGRESS' },
-                { name: 'Submit Answers (Interactive CLI)', value: 'SUBMIT_OBJECTIVE' },
-                { name: '< Back to Main Menu', value: 'BACK' }
-            ]
-        }
-    ]);
+    while (true) {
+        const { action } = await inquirer.prompt([
+            {
+                type: 'list',
+                name: 'action',
+                message: `Select an action for [ONGOING/PENDING] ${selectedSet.name}:`,
+                prefix: '>',
+                choices: [
+                    { name: 'View Real-time Progress', value: 'INFO' },
+                    { name: 'Download Problem Set (Clean Markdown)', value: 'DOWNLOAD_CLEAN' },
+                    { name: 'Download Current Progress (With Saved Answers)', value: 'DOWNLOAD_PROGRESS' },
+                    { name: 'Submit Answers (Interactive CLI)', value: 'SUBMIT_OBJECTIVE' },
+                    { name: '< Back to Main Menu', value: 'BACK' }
+                ]
+            }
+        ]);
 
-    if (action === 'INFO') {
-        await generateOngoingInfo(selectedSet);
-    } else if (action === 'DOWNLOAD_CLEAN') {
-        console.log(`[INFO] Starting clean download workflow for: ${selectedSet.name}`);
-        await downloadProblemSet(selectedSet.id, selectedSet.name);
-    } else if (action === 'DOWNLOAD_PROGRESS') {
-        await downloadOngoingProgress(selectedSet.id, selectedSet.name);
-    } else if (action === 'SUBMIT_OBJECTIVE') {
-        await handleSubmissionDispatcher(selectedSet);
+        if (action === 'INFO') {
+            await generateOngoingInfo(selectedSet);
+        } else if (action === 'DOWNLOAD_CLEAN') {
+            console.log(`[INFO] Starting clean download workflow for: ${selectedSet.name}`);
+            await downloadProblemSet(selectedSet.id, selectedSet.name);
+        } else if (action === 'DOWNLOAD_PROGRESS') {
+            await downloadOngoingProgress(selectedSet.id, selectedSet.name);
+        } else if (action === 'SUBMIT_OBJECTIVE') {
+            await handleSubmissionDispatcher(selectedSet);
+        } else if (action === 'BACK') {
+            // Break the internal loop to return to the root menu
+            break;
+        }
+        
+        console.log("\n----------------------------------------");
     }
 }
 
@@ -45,24 +52,30 @@ async function handleOngoingSet(selectedSet) {
  * @param {object} selectedSet - The full problem set object
  */
 async function handleEndedSet(selectedSet) {
-    const { action } = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'action',
-            message: `Select an action for [ENDED] ${selectedSet.name}:`,
-            prefix: '>',
-            choices: [
-                { name: 'View Terminal Report Card', value: 'REPORT' },
-                { name: 'Download Archive (With Source Code & Results)', value: 'ARCHIVE' },
-                { name: '< Back to Main Menu', value: 'BACK' }
-            ]
-        }
-    ]);
+    while (true) {
+        const { action } = await inquirer.prompt([
+            {
+                type: 'list',
+                name: 'action',
+                message: `Select an action for [ENDED] ${selectedSet.name}:`,
+                prefix: '>',
+                choices: [
+                    { name: 'View Terminal Report Card', value: 'REPORT' },
+                    { name: 'Download Archive (With Source Code & Results)', value: 'ARCHIVE' },
+                    { name: '< Back to Main Menu', value: 'BACK' }
+                ]
+            }
+        ]);
 
-    if (action === 'REPORT') {
-        await generateTerminalReport(selectedSet.id, selectedSet.name);
-    } else if (action === 'ARCHIVE') {
-        await downloadArchive(selectedSet.id, selectedSet.name);
+        if (action === 'REPORT') {
+            await generateTerminalReport(selectedSet.id, selectedSet.name);
+        } else if (action === 'ARCHIVE') {
+            await downloadArchive(selectedSet.id, selectedSet.name);
+        } else if (action === 'BACK') {
+            break;
+        }
+        
+        console.log("\n----------------------------------------");
     }
 }
 
