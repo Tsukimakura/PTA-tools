@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const inquirer = require('inquirer');
 const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
@@ -16,8 +18,14 @@ function formatTitleForCli(rawTitle) {
 /**
  * Format answer array or string for compact menu display
  */
-function formatAnswerForMenu(ans) {
+function formatAnswerForMenu(ans, problemType) {
     if (ans === undefined || ans === null || ans === 'UNANSWERED') return 'UNANSWERED';
+    
+    if (problemType === 'CODE_COMPLETION' || problemType === 'PROGRAMMING') {
+        const byteSize = Buffer.byteLength(ans, 'utf8');
+        return `[Code Loaded: ${byteSize} bytes]`;
+    }
+
     let displayAns = ans;
     if (Array.isArray(ans)) {
         displayAns = ans.map(a => a === '' ? '(Empty)' : a).join(' | ');
@@ -26,6 +34,74 @@ function formatAnswerForMenu(ans) {
         return displayAns.substring(0, 22) + '...';
     }
     return displayAns;
+}
+
+/**
+ * Asynchronously poll the judge result until it completes or times out
+ */
+async function pollJudgeResult(examId, setId, probId, maxRetries = 15) {
+    const endpoints = getEndpoints();
+    let attempts = 0;
+
+    while (attempts < maxRetries) {
+        await new Promise(r => setTimeout(r, 1500)); // 1.5s interval
+        
+        try {
+            const res = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, probId));
+            const data = await res.json();
+            
+            if (data && data.submission) {
+                const status = data.submission.status;
+                if (status !== 'WAITING' && status !== 'JUDGING') {
+                    return data.submission; // Judging finished
+                }
+            }
+        } catch (err) {
+            // Ignore temporary network errors during polling
+        }
+        attempts++;
+    }
+    return null; // Timeout
+}
+
+/**
+ * Print detailed testcase results in a formatted ASCII table
+ */
+function printJudgeReport(probTitle, submissionData) {
+    console.log(`\n--- Judge Report: ${probTitle} ---`);
+    console.log(`Final Status: ${submissionData.status} | Score: ${submissionData.score}`);
+
+    const judges = submissionData.judgeResponseContents || [];
+    if (judges.length === 0) {
+        console.log("[INFO] No detailed judge response contents available.");
+        return;
+    }
+
+    const testcases = judges[0].testcaseJudgeResults || (judges[0].codeCompletionJudgeResponseContent ? judges[0].codeCompletionJudgeResponseContent.testcaseJudgeResults : null);
+    const hints = submissionData.hints || {};
+
+    if (!testcases) {
+        console.log("[INFO] No testcase specifics provided by server.");
+        return;
+    }
+
+    console.log( "".padEnd(85, "-") );
+    console.log(`| ${"Case".padEnd(4)} | ${"Status".padEnd(18)} | ${"Score".padEnd(5)} | ${"Time(s)".padEnd(7)} | ${"Mem(KB)".padEnd(7)} | ${"Hint"}`);
+    console.log( "".padEnd(85, "-") );
+
+    for (const [caseId, caseData] of Object.entries(testcases)) {
+        const status = caseData.result || "UNKNOWN";
+        const score = caseData.testcaseScore !== undefined ? caseData.testcaseScore.toString() : "-";
+        const time = caseData.time !== undefined ? caseData.time.toFixed(3) : "-";
+        const mem = caseData.memory !== undefined ? Math.round(caseData.memory / 1024).toString() : "-";
+        const hint = hints[caseId] || "-";
+
+        // Truncate hint if too long for terminal
+        const displayHint = hint.length > 25 ? hint.substring(0, 22) + "..." : hint;
+
+        console.log(`| ${caseId.padEnd(4)} | ${status.padEnd(18)} | ${score.padEnd(5)} | ${time.padEnd(7)} | ${mem.padEnd(7)} | ${displayHint}`);
+    }
+    console.log( "".padEnd(85, "-") + "\n" );
 }
 
 /**
@@ -39,7 +115,6 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
     console.log(`\n[INFO] Initializing Submission Engine for [${problemType}]...`);
 
     try {
-        // 1. Initialization & Fetch Data
         const sessionData = await ensureExamSession(setId, setName);
         const examId = sessionData.exam.id;
 
@@ -67,14 +142,17 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                     existingAnswers[pid] = detail.trueOrFalseSubmissionDetail.answer;
                 } else if (problemType === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING' && detail.fillInTheBlankForProgrammingSubmissionDetail) {
                     existingAnswers[pid] = detail.fillInTheBlankForProgrammingSubmissionDetail.answers || [];
+                } else if (problemType === 'CODE_COMPLETION' && detail.codeCompletionSubmissionDetail) {
+                    existingAnswers[pid] = detail.codeCompletionSubmissionDetail.program || "";
+                } else if (problemType === 'PROGRAMMING' && detail.programmingSubmissionDetail) {
+                    existingAnswers[pid] = detail.programmingSubmissionDetail.program || "";
                 }
             });
         }
 
-        // 2. Staging Area for Local Modifications
         const stagedAnswers = {};
 
-        // 3. Interactive Modification Loop
+        // Main Modification Loop
         while (true) {
             console.log("\n========================================");
             console.log(` Editor: ${problemType.replace(/_/g, ' ')}`);
@@ -84,12 +162,11 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                 const label = prob.label ? `[${prob.label}] ` : '';
                 const displayTitle = formatTitleForCli(prob.title);
                 
-                // Determine the effective answer (staged overrides existing)
                 const effectiveAns = stagedAnswers[prob.id] !== undefined 
                     ? stagedAnswers[prob.id] 
                     : (existingAnswers[prob.id] || 'UNANSWERED');
                 
-                const displayAns = formatAnswerForMenu(effectiveAns);
+                const displayAns = formatAnswerForMenu(effectiveAns, problemType);
                 const isModifiedMark = stagedAnswers[prob.id] !== undefined ? ' *[Modified]*' : '';
 
                 return {
@@ -112,16 +189,14 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                 }
             ]);
 
-            // Handle Global Actions
             if (selectedTarget === 'ACTION_ABORT') {
                 console.log("\n[INFO] Editor closed. Local modifications discarded.");
                 return;
             }
             if (selectedTarget === 'ACTION_SUBMIT') {
-                break; // Break the loop to proceed to the API POST phase
+                break;
             }
 
-            // 4. Handle Specific Question Routing
             const targetProb = problems.find(p => p.id === selectedTarget);
             const qIndex = problems.findIndex(p => p.id === selectedTarget) + 1;
             const label = targetProb.label ? `[${targetProb.label}] ` : '';
@@ -133,9 +208,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
 
             console.log(`\n--- Editing Q${qIndex} ---`);
 
-            // -----------------------------------------------------
-            // Sub-Routine A: Objective Questions
-            // -----------------------------------------------------
+            // Branch A: Objective Questions
             if (problemType === 'MULTIPLE_CHOICE' || problemType === 'TRUE_OR_FALSE') {
                 let choices = [];
                 if (problemType === 'TRUE_OR_FALSE') {
@@ -163,13 +236,9 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                     }
                 ]);
 
-                if (answer !== 'ACTION_BACK') {
-                    stagedAnswers[targetProb.id] = answer;
-                }
+                if (answer !== 'ACTION_BACK') stagedAnswers[targetProb.id] = answer;
             }
-            // -----------------------------------------------------
-            // Sub-Routine B: Fill-in-the-Blank for Programming
-            // -----------------------------------------------------
+            // Branch B: Fill-in-the-Blank for Programming
             else if (problemType === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 const config = targetProb.problemConfig && targetProb.problemConfig.fillInTheBlankForProgrammingProblemConfig;
                 const blanksCount = config && config.blanks ? config.blanks.length : 0;
@@ -206,30 +275,58 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                     updatedAnswers.push(blankInput === '!CLEAR' ? '' : blankInput);
                 }
 
-                if (!userBackedOut) {
-                    // Check if array is deeply different (simple stringify comparison)
-                    if (JSON.stringify(updatedAnswers) !== JSON.stringify(baseAnswers)) {
-                        stagedAnswers[targetProb.id] = updatedAnswers;
-                    }
+                if (!userBackedOut && JSON.stringify(updatedAnswers) !== JSON.stringify(baseAnswers)) {
+                    stagedAnswers[targetProb.id] = updatedAnswers;
                 }
             }
-            // -----------------------------------------------------
-            // Sub-Routine C: Programming / Function (Future Implementation)
-            // -----------------------------------------------------
-            else if (problemType === 'PROGRAMMING' || problemType === 'MULTIPLE_FILE') {
-                console.log(`[WARN] Interactive local-file submission for ${problemType} is not yet implemented.`);
-                // Here we will eventually prompt the user for a file path, read it, and add to stagedAnswers.
-                await new Promise(resolve => setTimeout(resolve, 1500));
+            // Branch C: Programming / Function Code Injection
+            else if (problemType === 'CODE_COMPLETION' || problemType === 'PROGRAMMING') {
+                console.log(`Instructions: Enter the relative or absolute path to your source file.`);
+                console.log(`Example: ./src/6-1.c or C:\\workspace\\solution.cpp\n`);
+
+                const { filePath } = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'filePath',
+                        message: `Source file path (Type '!BACK' to cancel):`,
+                        prefix: '>'
+                    }
+                ]);
+
+                if (filePath === '!BACK') continue;
+
+                try {
+                    const absolutePath = path.resolve(process.cwd(), filePath.trim());
+                    const codeContent = fs.readFileSync(absolutePath, 'utf8');
+                    
+                    if (codeContent.trim() === '') {
+                        console.log(`[WARN] The specified file is empty. Please check the file content.`);
+                        continue;
+                    }
+
+                    // Store content and show success feedback
+                    stagedAnswers[targetProb.id] = codeContent;
+                    console.log(`[SUCCESS] Loaded ${Buffer.byteLength(codeContent, 'utf8')} bytes from: ${absolutePath}`);
+                    
+                    // Show a quick preview of the first 3 lines
+                    const previewLines = codeContent.split('\n').slice(0, 3).join('\n');
+                    console.log(`\n--- Code Preview ---\n${previewLines}\n--------------------\n`);
+                    await new Promise(r => setTimeout(r, 1500));
+
+                } catch (fsError) {
+                    console.log(`[ERROR] Failed to read file: ${fsError.message}`);
+                    console.log(`[INFO] Please ensure the path is correct and the file has read permissions.`);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
             }
         }
 
-        // 5. Build Final Payload and Submit
+        // Final Payload Construction
         if (Object.keys(stagedAnswers).length === 0) {
             console.log("\n[INFO] No changes were made. Aborting request.");
             return;
         }
 
-        // Merge existing answers with staged answers
         const finalAnswersMap = { ...existingAnswers, ...stagedAnswers };
         const detailsPayload = [];
 
@@ -242,8 +339,11 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                 detailObj.trueOrFalseSubmissionDetail = { answer: ans };
             } else if (problemType === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 detailObj.fillInTheBlankForProgrammingSubmissionDetail = { answers: ans };
+            } else if (problemType === 'CODE_COMPLETION') {
+                detailObj.codeCompletionSubmissionDetail = { program: ans };
+            } else if (problemType === 'PROGRAMMING') {
+                detailObj.programmingSubmissionDetail = { program: ans };
             }
-            // Future extensions for programming will go here
             
             detailsPayload.push(detailObj);
         }
@@ -253,7 +353,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
             details: detailsPayload
         };
 
-        console.log("\n[INFO] Transmitting updated payload to server...");
+        console.log("\n[INFO] Transmitting payload to server...");
         const postRes = await ptaFetch(endpoints.SUBMIT_EXAM(examId), {
             method: 'POST',
             body: JSON.stringify(payload),
@@ -266,7 +366,30 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
             throw new Error(`Submission rejected: ${postData.error.message || postData.error.code}`);
         }
 
-        console.log(`[SUCCESS] Answers successfully updated! (Submission ID: ${postData.submissionId})`);
+        console.log(`[SUCCESS] Answers successfully committed! (Submission ID: ${postData.submissionId})`);
+
+        // Trigger Active Polling for Code Executions
+        if (problemType === 'CODE_COMPLETION' || problemType === 'PROGRAMMING') {
+            console.log(`[INFO] Code submission detected. Initiating sandbox judge polling...`);
+            
+            const stagedProbIds = Object.keys(stagedAnswers);
+            for (const probId of stagedProbIds) {
+                const targetProb = problems.find(p => p.id === probId);
+                const displayTitle = formatTitleForCli(targetProb.title);
+                
+                process.stdout.write(`\n[JUDGE] Waiting for results on [${targetProb.label}] ${displayTitle}... `);
+                
+                const resultData = await pollJudgeResult(examId, setId, probId);
+                
+                if (resultData) {
+                    process.stdout.write(`Done.\n`);
+                    printJudgeReport(displayTitle, resultData);
+                } else {
+                    process.stdout.write(`TIMEOUT.\n`);
+                    console.log(`[WARN] Polling timed out. The server might be experiencing high load.`);
+                }
+            }
+        }
 
     } catch (error) {
         if (error.message === "USER_CANCELED") {
@@ -287,7 +410,7 @@ async function handleSubmissionDispatcher(selectedSet) {
         const summaryData = await summaryRes.json();
         const availableTypes = Object.keys(summaryData.summaries || {});
 
-        const supportedTypes = ['TRUE_OR_FALSE', 'MULTIPLE_CHOICE', 'FILL_IN_THE_BLANK_FOR_PROGRAMMING'];
+        const supportedTypes = ['TRUE_OR_FALSE', 'MULTIPLE_CHOICE', 'FILL_IN_THE_BLANK_FOR_PROGRAMMING', 'CODE_COMPLETION', 'PROGRAMMING'];
         const validTypes = availableTypes.filter(t => supportedTypes.includes(t));
 
         if (validTypes.length === 0) {
