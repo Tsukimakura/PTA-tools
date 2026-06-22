@@ -49,14 +49,14 @@ async function submitObjectiveAnswers(setId, setName, problemType) {
         // 4. Interactive CLI Prompting
         console.log("\n----------------------------------------");
         console.log(` Answer Interface: ${problemType.replace(/_/g, ' ')}`);
-        console.log(" Instructions: Press Enter to keep current answer. Select 'SKIP' to leave blank.");
+        console.log(" Instructions: Select 'SKIP' to keep current answer. Select 'ABORT' to exit entirely.");
         console.log("----------------------------------------\n");
 
         const newAnswers = {};
         for (let i = 0; i < problems.length; i++) {
             const prob = problems[i];
             const currentSaved = existingAnswers[prob.id] || 'UNANSWERED';
-            const label = prob.label ? `[${prob.label}]` : '';
+            const label = prob.label ? `[${prob.label}] ` : '';
             
             // Limit title length for clean terminal display
             let displayTitle = prob.title.replace(/<[^>]+>/g, '').trim();
@@ -67,38 +67,51 @@ async function submitObjectiveAnswers(setId, setName, problemType) {
                 choices = [
                     { name: 'TRUE (T)', value: 'TRUE' },
                     { name: 'FALSE (F)', value: 'FALSE' },
-                    { name: 'SKIP (Leave Blank)', value: '' }
+                    new inquirer.Separator(),
+                    { name: 'SKIP (Keep current / Unanswered)', value: 'SKIP' },
+                    { name: 'ABORT (Exit without saving)', value: 'ABORT' }
                 ];
             } else if (problemType === 'MULTIPLE_CHOICE') {
                 choices = [
                     'A', 'B', 'C', 'D', 'E', 'F',
-                    { name: 'SKIP (Leave Blank)', value: '' }
+                    new inquirer.Separator(),
+                    { name: 'SKIP (Keep current / Unanswered)', value: 'SKIP' },
+                    { name: 'ABORT (Exit without saving)', value: 'ABORT' }
                 ];
             }
 
-            // Put the currently saved answer at the top of choices if it exists
-            const defaultIndex = choices.findIndex(c => (typeof c === 'string' ? c : c.value) === currentSaved);
+            // Determine default selection: prioritize existing answer, fallback to SKIP
+            let defaultIndex = choices.findIndex(c => (typeof c === 'string' ? c : c.value) === currentSaved);
+            if (defaultIndex === -1) {
+                defaultIndex = choices.findIndex(c => (typeof c === 'string' ? c : c.value) === 'SKIP');
+            }
             
             const { answer } = await inquirer.prompt([
                 {
                     type: 'list',
                     name: 'answer',
-                    message: `Q${i + 1} ${label} ${displayTitle}\n  Current: ${currentSaved}\n  Your Answer:`,
+                    message: `Q${i + 1} ${label}${displayTitle}\n  Current: ${currentSaved}\n  Your Answer:`,
                     choices: choices,
-                    default: defaultIndex >= 0 ? defaultIndex : 0,
+                    default: defaultIndex,
                     prefix: '?'
                 }
             ]);
 
-            if (answer !== '') {
+            // Break the loop and return early if user aborts
+            if (answer === 'ABORT') {
+                console.log("\n[INFO] Submission aborted by user. No answers were uploaded.");
+                return; 
+            }
+
+            // Only register real changes (ignore SKIP)
+            if (answer !== 'SKIP') {
                 newAnswers[prob.id] = answer;
             }
         }
 
         // 5. Build POST Payload
-        const detailsPayload = [];
-        // Merge existing answers with new answers (New answers overwrite existing ones locally)
         const finalAnswersMap = { ...existingAnswers, ...newAnswers };
+        const detailsPayload = [];
 
         for (const [probId, ans] of Object.entries(finalAnswersMap)) {
             const detailObj = {
@@ -114,7 +127,7 @@ async function submitObjectiveAnswers(setId, setName, problemType) {
         }
 
         if (detailsPayload.length === 0) {
-            console.log("\n[INFO] No answers to submit. Aborting request.");
+            console.log("\n[INFO] No valid answers to submit. Aborting request.");
             return;
         }
 
