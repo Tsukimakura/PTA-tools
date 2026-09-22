@@ -40,6 +40,12 @@ function formatAnswerForMenu(ans, problemType) {
     return displayAns;
 }
 
+function submissionMatchesExpectedId(submission, expectedSubmissionId) {
+    if (!expectedSubmissionId) return true;
+    const observedSubmissionId = submission && (submission.id || submission.submissionId);
+    return String(observedSubmissionId) === String(expectedSubmissionId);
+}
+
 /**
  * Asynchronously poll the judge result until it completes or times out
  */
@@ -55,8 +61,7 @@ async function pollJudgeResult(examId, setId, probId, expectedSubmissionId, maxR
             const data = await res.json();
             
             if (data && data.submission) {
-                const observedSubmissionId = data.submission.id || data.submission.submissionId;
-                if (expectedSubmissionId && String(observedSubmissionId) !== String(expectedSubmissionId)) {
+                if (!submissionMatchesExpectedId(data.submission, expectedSubmissionId)) {
                     attempts++;
                     continue;
                 }
@@ -529,5 +534,6 @@ async function handleSubmissionDispatcher(selectedSet) {
 }
 
 module.exports = {
-    handleSubmissionDispatcher
+    handleSubmissionDispatcher,
+    submissionMatchesExpectedId
 };

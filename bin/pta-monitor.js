@@ -16,14 +16,14 @@ const { writeFileAtomicSync } = require('../src/utils/files');
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
 let isChecking = false;
 
-async function fetchMonitoredProblemSets(endpoints) {
+async function fetchMonitoredProblemSets(endpoints, fetcher = ptaFetch) {
     const limit = 50;
     let page = 0;
     let total = Infinity;
     const problemSets = [];
 
     while (problemSets.length < total) {
-        const response = await ptaFetch(endpoints.MONITORED_PROBLEM_SETS(page, limit));
+        const response = await fetcher(endpoints.MONITORED_PROBLEM_SETS(page, limit));
         const data = await response.json();
 
         if (data.error) return data;

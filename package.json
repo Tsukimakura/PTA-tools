@@ -11,7 +11,9 @@
   },
   "scripts": {
     "monitor": "node bin/pta-monitor.js",
-    "cli": "node bin/pta-cli.js"
+    "cli": "node bin/pta-cli.js",
+    "test": "node --test",
+    "check": "node --check bin/*.js src/**/*.js && npm test"
   },
   "keywords": [
     "pta",
