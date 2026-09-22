@@ -18,6 +18,7 @@ const { fetchMonitoredProblemSets } = require('../bin/pta-monitor');
 const { submissionMatchesExpectedId } = require('../src/services/submitter');
 const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 const { buildTodoDigest, sendTodoNotification } = require('../src/services/todoNotifier');
+const { runCommand } = require('../bin/pta');
 
 const originalFetch = global.fetch;
 
@@ -149,6 +150,24 @@ test('todo digest includes only unfinished sets in deadline order', async () => 
     assert.equal(sentDigest.count, 3);
     assert.equal(deliveredMessage.title, digest.title);
     assert.equal(deliveredMessage.markdown, digest.markdown);
+});
+
+test('unified CLI dispatches todo aliases and rejects unknown commands', async () => {
+    const output = [];
+    let todoCalls = 0;
+    const dependencies = {
+        sendTodo: async () => {
+            todoCalls++;
+            return { count: 2 };
+        },
+        writeLine: line => output.push(line)
+    };
+
+    await runCommand(['t'], dependencies);
+    assert.equal(todoCalls, 1);
+    assert.match(output[0], /2 unfinished sets/);
+
+    await assert.rejects(runCommand(['unknown'], dependencies), /Unknown command/);
 });
 
 test('atomic writer replaces complete files and preserves requested mode', () => {

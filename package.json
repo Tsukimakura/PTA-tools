@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "An automation and utility toolkit for the Pintia (PTA) platform.",
   "bin": {
+    "pta": "bin/pta.js",
     "pta-tools": "bin/pta-cli.js",
     "pta-monitor": "bin/pta-monitor.js"
   },
@@ -12,6 +13,7 @@
   "scripts": {
     "monitor": "node bin/pta-monitor.js",
     "cli": "node bin/pta-cli.js",
+    "todo": "node bin/pta.js todo",
     "test": "node --test",
     "check": "node --check bin/*.js src/**/*.js && npm test"
   },
