@@ -8,6 +8,7 @@ const { sendDingTalkNotification } = require('../src/utils/notifier');
 const { getCookieViaBrowser } = require('../src/auth/authManager');
 const { ptaFetch } = require('../src/api/client');
 const { getEndpoints } = require('../src/api/endpoints');
+const { writeFileAtomicSync } = require('../src/utils/files');
 
 // Resolve path relative to the bin directory
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
@@ -142,7 +143,7 @@ async function checkPTAStatus() {
                 initialMessage += "> *No ongoing problem sets at the moment.*\n";
             }
 
-            fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
+            writeFileAtomicSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2) + '\n');
             console.log("[INFO] Data initialization completed. Status saved to local file.");
             await sendDingTalkNotification(title, initialMessage.trim());
             isChecking = false;
@@ -229,10 +230,10 @@ async function checkPTAStatus() {
 
             console.log(`[INFO] Status changes detected! Sending Markdown notification...`);
             await sendDingTalkNotification(title, finalMessage.trim());
-            fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
+            writeFileAtomicSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2) + '\n');
         } else {
             if (cacheDirty) {
-                fs.writeFileSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2));
+                writeFileAtomicSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2) + '\n');
             }
             console.log("[INFO] Check complete. No changes detected.");
         }

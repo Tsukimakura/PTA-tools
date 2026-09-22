@@ -4,6 +4,7 @@ const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateMarkdown } = require('./parser');
 const { ensureExamSession } = require('./examSession');
+const { writeFileAtomicSync } = require('../utils/files');
 
 /**
  * Fetch all problem sets available to the user, handling API pagination automatically.
@@ -105,7 +106,7 @@ async function downloadProblemSet(setId, setName) {
         const safeFilename = sanitizeFilename(setName) + '.md';
         const finalPath = path.join(downloadDir, safeFilename);
         
-        fs.writeFileSync(finalPath, markdownContent, 'utf8');
+        writeFileAtomicSync(finalPath, markdownContent);
         
         console.log(`[SUCCESS] Problem set successfully downloaded and saved to: \n -> ${finalPath}\n`);
 
@@ -201,7 +202,7 @@ async function downloadOngoingProgress(setId, setName) {
         const safeFilename = `[Progress] ${sanitizeFilename(setName)}.md`;
         const finalPath = path.join(downloadDir, safeFilename);
         
-        fs.writeFileSync(finalPath, markdownContent, 'utf8');
+        writeFileAtomicSync(finalPath, markdownContent);
         console.log(`[SUCCESS] Current progress successfully exported to: \n -> ${finalPath}\n`);
 
     } catch (error) {

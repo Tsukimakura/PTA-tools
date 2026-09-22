@@ -4,6 +4,7 @@ const { ptaFetch } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateArchiveMarkdown } = require('./archiveParser');
 const { ensureExamSession } = require('./examSession');
+const { writeFileAtomicSync } = require('../utils/files');
 
 async function downloadArchive(setId, setName) {
     const endpoints = getEndpoints();
@@ -199,7 +200,7 @@ async function downloadArchive(setId, setName) {
         const safeFilename = `[Archive] ${sanitizeFilename(setName)}.md`;
         const finalPath = path.join(downloadDir, safeFilename);
         
-        fs.writeFileSync(finalPath, markdownContent, 'utf8');
+        writeFileAtomicSync(finalPath, markdownContent);
         
         console.log(`[SUCCESS] Archive successfully generated and saved to: \n -> ${finalPath}\n`);
 

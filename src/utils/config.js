@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { writeFileAtomicSync } = require('./files');
 
 // Resolve the path relative to the project root
 const CONFIG_FILE = path.join(__dirname, '../../config.json');
@@ -22,7 +23,7 @@ function getConfig() {
 function updateCookie(newCookie) {
     const config = getConfig();
     config.cookie = newCookie;
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    writeFileAtomicSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
 }
 
 module.exports = {
