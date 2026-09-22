@@ -10,8 +10,9 @@ function getEndpoints() {
     const encodedFilter = encodeURIComponent(filterParams);
 
     return {
-        // Dynamic URL for the monitor, eliminating the need for manual configuration
-        PROBLEM_SETS: `https://pintia.cn/api/problem-sets?filter=${encodedFilter}&page=0&limit=30&order_by=END_AT&asc=true`,
+        // Dynamic URL for the monitor, retaining recently ended sets for reliable transitions
+        MONITORED_PROBLEM_SETS: (page = 0, limit = 50) =>
+            `https://pintia.cn/api/problem-sets?filter=${encodedFilter}&page=${page}&limit=${limit}&order_by=END_AT&asc=true`,
         
         // Base API for fetching all problem sets with pagination
         ALL_PROBLEM_SETS: (page = 0, limit = 30) => 
