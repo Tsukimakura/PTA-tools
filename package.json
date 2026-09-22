@@ -8,7 +8,7 @@
     "pta-monitor": "bin/pta-monitor.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.12"
   },
   "scripts": {
     "monitor": "node bin/pta-monitor.js",
@@ -26,7 +26,7 @@
   "license": "GPL-3.0-only",
   "dependencies": {
     "inquirer": "^8.2.7",
-    "puppeteer": "^22.0.0",
+    "puppeteer": "^25.11.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },

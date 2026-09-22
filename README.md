@@ -15,6 +15,8 @@ A useful (I hope) toolkit for the PTA (Pintia) platform.
 
 ## Installation
 
+Requires Node.js 22.12 or newer.
+
 1. **Clone the Repository:**
 
 ```bash
