@@ -47,7 +47,7 @@
   "author": "Tsukimakura",
   "license": "GPL-3.0-only",
   "dependencies": {
-    "inquirer": "^8.2.7",
+    "inquirer": "^14.2.2",
     "puppeteer": "^25.11.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
