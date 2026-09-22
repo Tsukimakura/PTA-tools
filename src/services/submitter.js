@@ -43,7 +43,7 @@ function formatAnswerForMenu(ans, problemType) {
 /**
  * Asynchronously poll the judge result until it completes or times out
  */
-async function pollJudgeResult(examId, setId, probId, maxRetries = 15) {
+async function pollJudgeResult(examId, setId, probId, expectedSubmissionId, maxRetries = 15) {
     const endpoints = getEndpoints();
     let attempts = 0;
 
@@ -55,6 +55,12 @@ async function pollJudgeResult(examId, setId, probId, maxRetries = 15) {
             const data = await res.json();
             
             if (data && data.submission) {
+                const observedSubmissionId = data.submission.id || data.submission.submissionId;
+                if (expectedSubmissionId && String(observedSubmissionId) !== String(expectedSubmissionId)) {
+                    attempts++;
+                    continue;
+                }
+
                 const status = data.submission.status;
                 if (status !== 'WAITING' && status !== 'JUDGING') {
                     return data.submission; // Judging finished
@@ -252,7 +258,20 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                         { name: 'FALSE (F)', value: 'FALSE' }
                     ];
                 } else {
-                    choices = ['A', 'B', 'C', 'D', 'E', 'F'];
+                    const choiceConfig = targetProb.problemConfig
+                        && targetProb.problemConfig.multipleChoiceProblemConfig;
+                    const configuredChoices = choiceConfig && Array.isArray(choiceConfig.choices)
+                        ? choiceConfig.choices
+                        : [];
+                    const choiceCount = configuredChoices.length || 6;
+
+                    choices = Array.from({ length: choiceCount }, (_, index) => {
+                        const label = String.fromCharCode(65 + index);
+                        const choiceText = configuredChoices[index]
+                            ? ` — ${formatTitleForCli(configuredChoices[index])}`
+                            : '';
+                        return { name: `${label}${choiceText}`, value: label };
+                    });
                 }
                 choices.push(new inquirer.Separator());
                 choices.push({ name: '< BACK (Keep current & Return to Menu)', value: 'ACTION_BACK' });
@@ -444,7 +463,12 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                 
                 process.stdout.write(`\n[JUDGE] Waiting for results on [${targetProb.label}] ${displayTitle}... `);
                 
-                const resultData = await pollJudgeResult(examId, setId, probId);
+                const resultData = await pollJudgeResult(
+                    examId,
+                    setId,
+                    probId,
+                    postData.submissionId
+                );
                 
                 if (resultData) {
                     process.stdout.write(`Done.\n`);
