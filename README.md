@@ -26,7 +26,12 @@ cd PTA-tools
 
 ```bash
 npm install
+npm link
 ```
+
+`npm link` registers the short `pta` command globally for the current Node.js
+installation. If you do not want to link it, all `npm run ...` commands remain
+available inside the repository.
 
 
 3. **Configuration:**
@@ -69,23 +74,49 @@ the current user (`0600`) before using it. The file remains excluded from Git.
 
 ## Usage Guide
 
+Run `pta help` to see every command:
+
+```text
+pta [cli|todo|monitor|help]
+```
+
+The aliases `c`, `t`, `m`, and `h` are also accepted. Running `pta` without a
+subcommand opens the interactive console.
+
 ### 1. Interactive Console
 
 To start downloading assignments or inspecting reports via terminal, execute:
 
 ```bash
-npm run cli
+pta
+# or: pta cli
 ```
 
-After installing or linking the package, the same entry point is available as
-`pta-tools`.
+The legacy `npm run cli` and `pta-tools` entry points are still supported.
 
-### 2. Status Monitor
+### 2. Send a DingTalk todo digest
+
+```bash
+pta todo
+# short alias: pta t
+```
+
+This performs a one-time refresh, selects all `ONGOING` and `NOT_STARTED`
+problem sets, sorts them by deadline/start time, and sends one Markdown digest
+through `DINGTALK_WEBHOOK`. It complements the monitor: `todo` is an on-demand
+snapshot, while `monitor` reports changes continuously.
+
+The robot webhook sends a todo-style summary message. It does not create native
+DingTalk Todo objects, which require a DingTalk enterprise application and its
+Todo API credentials.
+
+### 3. Status Monitor
 
 To spin up the continuous tracking subsystem that records state changes and pipes them straight to your communication channels, execute:
 
 ```bash
-npm run monitor
+pta monitor
+# short alias: pta m
 ```
 
 The program creates `pta_status.json` to track state transitions. It remains in
@@ -94,7 +125,9 @@ to run as a background service. The installed executable is `pta-monitor`.
 
 (In short, you can use it to avoid missing a test...)
 
-### 3. Development checks
+The legacy `npm run monitor` and `pta-monitor` entry points are also supported.
+
+### 4. Development checks
 
 ```bash
 npm test
