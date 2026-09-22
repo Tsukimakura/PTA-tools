@@ -16,6 +16,7 @@ const {
 const { generateArchiveMarkdown } = require('../src/services/archiveParser');
 const { fetchMonitoredProblemSets } = require('../bin/pta-monitor');
 const { submissionMatchesExpectedId } = require('../src/services/submitter');
+const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 
 const originalFetch = global.fetch;
 
@@ -92,6 +93,30 @@ test('judge polling only accepts the newly created submission', () => {
     assert.equal(submissionMatchesExpectedId({ id: 'new-id' }, 'new-id'), true);
     assert.equal(submissionMatchesExpectedId({ id: 'old-id' }, 'new-id'), false);
     assert.equal(submissionMatchesExpectedId({}, 'new-id'), false);
+});
+
+test('problem-set loader reauthenticates once after an expired cookie', async () => {
+    const config = { cookie: 'expired' };
+    let fetchCalls = 0;
+    let authCalls = 0;
+    const expected = [{ id: 'set-1' }];
+
+    const result = await loadAuthenticatedProblemSets({
+        config,
+        fetchProblemSets: async () => (++fetchCalls === 1 ? null : expected),
+        authenticate: async () => {
+            authCalls++;
+            config.cookie = 'fresh';
+            return true;
+        },
+        updateCookie: cookie => {
+            config.cookie = cookie;
+        }
+    });
+
+    assert.equal(authCalls, 1);
+    assert.equal(fetchCalls, 2);
+    assert.equal(result, expected);
 });
 
 test('atomic writer replaces complete files and preserves requested mode', () => {

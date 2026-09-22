@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 const inquirer = require('inquirer');
-const { getCookieViaBrowser } = require('../src/auth/authManager');
-const { getConfig, updateCookie } = require('../src/utils/config');
 const { calculateRealStatus } = require('../src/utils/helpers');
-const { fetchAllProblemSets, downloadProblemSet, downloadOngoingProgress } = require('../src/services/downloader');
+const { downloadProblemSet, downloadOngoingProgress } = require('../src/services/downloader');
 const { generateTerminalReport, generateOngoingInfo } = require('../src/services/report');
 const { downloadArchive } = require('../src/services/archiveDownloader');
 const { handleSubmissionDispatcher } = require('../src/services/submitter');
+const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 
 /**
  * Handle operations for ongoing or pending problem sets
@@ -89,28 +88,7 @@ async function initCLI() {
     console.log("      PTA-Tools Interactive Console     ");
     console.log("========================================\n");
 
-    const config = getConfig();
-
-    // 1. Session Guard
-    if (!config.cookie) {
-        console.log("[INFO] No valid cookie found. Initiating login sequence...");
-        const success = await getCookieViaBrowser();
-        if (!success) {
-            console.error("[ERROR] Authentication failed. Exiting CLI.");
-            process.exit(1);
-        }
-    }
-
-    // 2. Fetch Metadata
-    let problemSets = await fetchAllProblemSets();
-    
-    if (problemSets === null) {
-        console.warn("[WARN] Credentials expired. Re-authenticating...");
-        updateCookie("");
-        const success = await getCookieViaBrowser();
-        if (!success) process.exit(1);
-        problemSets = await fetchAllProblemSets();
-    }
+    const problemSets = await loadAuthenticatedProblemSets();
 
     if (!problemSets || problemSets.length === 0) {
         console.log("[INFO] No problem sets found for this account.");
@@ -144,7 +122,7 @@ async function initCLI() {
 
         if (selectedSetId === "EXIT") {
             console.log("[INFO] Exiting tool.");
-            process.exit(0);
+            return;
         }
 
         const selectedSet = problemSets.find(s => s.id === selectedSetId);
@@ -161,4 +139,13 @@ async function initCLI() {
     }
 }
 
-initCLI();
+if (require.main === module) {
+    initCLI().catch(error => {
+        console.error(`[ERROR] ${error.message}`);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    initCLI
+};
