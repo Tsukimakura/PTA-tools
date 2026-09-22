@@ -2,7 +2,13 @@
   "name": "pta-tools",
   "version": "1.0.0",
   "description": "An automation and utility toolkit for the Pintia (PTA) platform.",
-  "main": "monitor.js",
+  "bin": {
+    "pta-tools": "bin/pta-cli.js",
+    "pta-monitor": "bin/pta-monitor.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "monitor": "node bin/pta-monitor.js",
     "cli": "node bin/pta-cli.js"

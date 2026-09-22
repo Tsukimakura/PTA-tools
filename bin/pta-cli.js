@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const inquirer = require('inquirer');
 const { getCookieViaBrowser } = require('../src/auth/authManager');
 const { getConfig, updateCookie } = require('../src/utils/config');
