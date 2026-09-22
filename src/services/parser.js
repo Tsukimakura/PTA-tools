@@ -49,6 +49,30 @@ function cleanText(text) {
         .replace(/\n{4,}/g, '\n\n');
 }
 
+function formatFencedCodeBlock(content, language = '') {
+    const text = String(content ?? '');
+    const backtickRuns = text.match(/`+/g) || [];
+    const longestRun = backtickRuns.reduce((max, run) => Math.max(max, run.length), 0);
+    const fence = '`'.repeat(Math.max(3, longestRun + 1));
+    return `${fence}${language}\n${text}\n${fence}`;
+}
+
+function formatInlineCode(content) {
+    const text = String(content ?? '');
+    const backtickRuns = text.match(/`+/g) || [];
+    const longestRun = backtickRuns.reduce((max, run) => Math.max(max, run.length), 0);
+    const fence = '`'.repeat(Math.max(1, longestRun + 1));
+    const padding = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+    return `${fence}${padding}${text}${padding}${fence}`;
+}
+
+function escapeMarkdownTableCell(content) {
+    return String(content ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\|/g, '\\|')
+        .replace(/\r?\n/g, '<br>');
+}
+
 /**
  * Generate beautifully formatted Markdown from PTA problem data
  * @param {string} setName - Name of the problem set
@@ -98,14 +122,14 @@ function generateMarkdown(setName, problemsByType, savedAnswersMap = {}) {
             md += `${problemBody}\n\n`;
 
             // Inject saved answers for ONGOING progress downloads
-            if (savedAnswersMap && savedAnswersMap[prob.id]) {
-                const ans = savedAnswersMap[prob.id];
+            if (savedAnswersMap && Object.hasOwn(savedAnswersMap, prob.id)) {
+                const ans = String(savedAnswersMap[prob.id] ?? '');
                 md += `> **[ Current Saved Answer ]**\n`;
                 if (ans.includes('\n')) {
-                    // Properly format multi-line answers (like code) into the blockquote
-                    md += `> \`\`\`text\n> ${ans.replace(/\n/g, '\n> ')}\n> \`\`\`\n\n`;
+                    const codeBlock = formatFencedCodeBlock(ans, 'text');
+                    md += `${codeBlock.split('\n').map(line => `> ${line}`).join('\n')}\n\n`;
                 } else {
-                    md += `> \`${ans}\`\n\n`;
+                    md += `> ${formatInlineCode(ans || '(empty)')}\n\n`;
                 }
             }
 
@@ -118,5 +142,9 @@ function generateMarkdown(setName, problemsByType, savedAnswersMap = {}) {
 
 module.exports = {
     sanitizeFilename,
+    cleanText,
+    formatFencedCodeBlock,
+    formatInlineCode,
+    escapeMarkdownTableCell,
     generateMarkdown
 };

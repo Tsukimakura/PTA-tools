@@ -1,45 +1,9 @@
-function sanitizeFilename(name) {
-    return name.replace(/[\\/:*?"<>|]/g, '_');
-}
-
-function cleanText(text) {
-    if (!text) return '';
-    
-    return text
-        // 1. Strip useless PTA default rich-text editor templates
-        .replace(/这是.*?题模板。[\s\S]*?与评测代码对应的测试数据\*?（默认无）\*?\n?/g, '')
-        .replace(/这是一个.*?的样例。[^\n]*\n?/g, '')
-        
-        // 2. Fix explicit PTA placeholders (@[] or @@[]) - Use raw underscores, NO escaping needed for code blocks
-        .replace(/~?\s*@+\[.*?\]\([^)]*\)/g, '______')
-        
-        // 3. Heuristics for "invisible" blanks left by sloppy problem creation
-        .replace(/\b(while|if|for)\s*\(\s*\)/g, '$1( ______ )') // Fix empty conditions: while () -> while ( ______ )
-        .replace(/=\s*;/g, '= ______;')                        // Fix empty assignments: a = ; -> a = ______ ;
-        .replace(/^(\s*);\s*$/gm, '$1______;')                 // Fix isolated semicolons: [space]; -> [space]______;
-        
-        // 4. Convert block math $$...$$ to inline math $...$
-        .replace(/\$\$(.*?)\$\$/gs, '$$$1$$')
-        
-        // 5. Fix relative image URLs to absolute URLs
-        .replace(/\]\(~\//g, '](https://images.ptausercontent.com/')
-        
-        // 6. Ensure spaces around inline math $...$ (avoiding punctuation boundaries)
-        .replace(/([^\s(\[{])\$(.*?)\$/gs, '$1 $$$2$$')
-        .replace(/\$(.*?)\$([^\s.,:;!?\-\)\]}])/gs, '$$$1$$ $2')
-        
-        // 7. Enforce empty lines between multiple-choice options (A., B., C., etc.)
-        .replace(/([^\n])\n([A-H][\.、]\s?)/g, '$1\n\n$2')
-        
-        // 8. Match entire code blocks and pad them with exactly one empty line outside
-        .replace(/\n*(```[\s\S]*?```)\n*/g, '\n\n$1\n\n')
-        
-        // 9. Ensure empty lines before tables
-        .replace(/([^\n|])\n\|/g, '$1\n\n|')
-        
-        // 10. Cleanup: Prevent multiple consecutive empty lines
-        .replace(/\n{4,}/g, '\n\n');
-}
+const {
+    sanitizeFilename,
+    cleanText,
+    formatFencedCodeBlock,
+    escapeMarkdownTableCell
+} = require('./parser');
 
 /**
  * Generate a comprehensive Markdown archive including source code and results
@@ -136,7 +100,7 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                 // Use plain text formatting for the multiple file list
                 if (type === 'MULTIPLE_FILE') codeLang = 'text'; 
                 
-                md += `\`\`\`${codeLang}\n${sub.program}\n\`\`\`\n\n`;
+                md += `${formatFencedCodeBlock(sub.program, codeLang)}\n\n`;
 
                 // Both PROGRAMMING and CODE_COMPLETION share the same test case structure
                 if ((type === 'PROGRAMMING' || type === 'CODE_COMPLETION') && sub.testcases && Object.keys(sub.testcases).length > 0) {
@@ -149,7 +113,7 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                         const caseScore = caseData.testcaseScore !== undefined ? caseData.testcaseScore : '-';
                         const caseTime = caseData.time !== undefined ? caseData.time : '-';
                         const caseMem = caseData.memory !== undefined ? Math.round(caseData.memory / 1024) : '-';
-                        md += `| ${caseId} | ${caseData.result} | ${caseScore} | ${caseTime} | ${caseMem} | ${hint} |\n`;
+                        md += `| ${escapeMarkdownTableCell(caseId)} | ${escapeMarkdownTableCell(caseData.result)} | ${caseScore} | ${caseTime} | ${caseMem} | ${escapeMarkdownTableCell(hint)} |\n`;
                     }
                     md += `\n`;
                 } 
@@ -161,7 +125,7 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                     
                     sub.testcases.forEach((caseData, idx) => {
                         const caseScore = caseData.score !== undefined ? caseData.score : '-';
-                        md += `| ${idx + 1} | ${caseData.status} | ${caseScore} |\n`;
+                        md += `| ${idx + 1} | ${escapeMarkdownTableCell(caseData.status)} | ${caseScore} |\n`;
                     });
                     md += `\n`;
                 }
@@ -169,10 +133,10 @@ function generateArchiveMarkdown(setName, problemsByType, submissionMap) {
                 else if (type === 'MULTIPLE_FILE' && sub.testcases && (sub.testcases.stdout || sub.testcases.info)) {
                     md += `**Judge Output:**\n\n`;
                     if (sub.testcases.stdout) {
-                        md += `*stdout:*\n\`\`\`text\n${sub.testcases.stdout.trim()}\n\`\`\`\n\n`;
+                        md += `*stdout:*\n${formatFencedCodeBlock(sub.testcases.stdout.trim(), 'text')}\n\n`;
                     }
                     if (sub.testcases.info) {
-                        md += `*info:*\n\`\`\`text\n${sub.testcases.info.trim()}\n\`\`\`\n\n`;
+                        md += `*info:*\n${formatFencedCodeBlock(sub.testcases.info.trim(), 'text')}\n\n`;
                     }
                 }
             }
