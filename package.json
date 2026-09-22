@@ -53,6 +53,6 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
-    "@types/node": "^22.20.4"
+    "@types/node": "^26.6.2"
   }
 }
