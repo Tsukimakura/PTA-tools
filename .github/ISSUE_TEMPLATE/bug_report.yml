@@ -1,0 +1,89 @@
+name: 错误报告
+description: 报告可以稳定复现的 PTA-Tools 缺陷
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你帮助改进 PTA-Tools。请先确认问题可在最新 `main` 分支复现。
+        **不要填写账号、密码、Cookie、Webhook、学号或未公开题目内容。安全漏洞请使用私密报告入口。**
+
+  - type: dropdown
+    id: command
+    attributes:
+      label: 受影响的功能
+      options:
+        - 交互式 CLI
+        - 登录与认证
+        - 题面或进度下载
+        - 归档与成绩报告
+        - 答案提交与评测轮询
+        - 钉钉待办摘要
+        - Monitor 状态监控
+        - 安装、依赖或 CI
+        - 其它
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交
+      description: 请填写 Git commit hash 或版本号。
+      placeholder: 例如 527e9aa
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 运行环境
+      description: 操作系统、Node.js 和 npm 版本。
+      placeholder: Ubuntu 24.04 / Node 22.12.0 / npm 10.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 提供最小、稳定且不会泄露敏感信息的复现步骤。
+      placeholder: |
+        1. 运行 `pta ...`
+        2. 选择 ...
+        3. 出现 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志
+      description: 请删除 Cookie、密码、Webhook、个人信息和私有题目内容。
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交确认
+      options:
+        - label: 我已搜索现有 Issue，未发现相同报告。
+          required: true
+        - label: 我确认以上内容不含任何敏感凭据或私有课程数据。
+          required: true
