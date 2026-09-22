@@ -2,8 +2,31 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { getConfig, updateCookie } = require('../utils/config');
 const { getTimestamp } = require('../utils/helpers');
+const { getEndpoints } = require('../api/endpoints');
 
 puppeteer.use(StealthPlugin());
+
+async function validateAuthenticationCookie(cookie) {
+    if (!cookie) return false;
+
+    try {
+        const response = await fetch(getEndpoints().ALL_PROBLEM_SETS(0, 1), {
+            headers: {
+                'Cookie': cookie,
+                'Accept': 'application/json, text/plain, */*',
+                'Origin': 'https://pintia.cn',
+                'Referer': 'https://pintia.cn/'
+            },
+            signal: AbortSignal.timeout(10_000)
+        });
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        return !data.error;
+    } catch (error) {
+        return false;
+    }
+}
 
 /**
  * Launch browser to simulate login and intercept authentication cookies
@@ -58,12 +81,16 @@ async function getCookieViaBrowser() {
                 const cookiesArray = await page.cookies();
                 const newCookie = cookiesArray.map(c => `${c.name}=${c.value}`).join('; ');
                 
-                // Use the centralized config manager to save the cookie
-                updateCookie(newCookie);
+                if (await validateAuthenticationCookie(newCookie)) {
+                    // Use the centralized config manager to save the validated cookie
+                    updateCookie(newCookie);
 
-                console.log("[INFO] Intercept successful. Authenticated Cookie retrieved and saved to configuration.");
-                loginSuccess = true;
-                break; 
+                    console.log("[INFO] Intercept successful. Authenticated Cookie validated and saved.");
+                    loginSuccess = true;
+                    break;
+                }
+
+                console.log("[INFO] Navigation detected, but the session is not authenticated yet...");
             }
             await new Promise(r => setTimeout(r, 1000)); 
         }
@@ -79,5 +106,6 @@ async function getCookieViaBrowser() {
 }
 
 module.exports = {
-    getCookieViaBrowser
+    getCookieViaBrowser,
+    validateAuthenticationCookie
 };
