@@ -1,7 +1,6 @@
 // Calculate the real display status based on time window
 
-function calculateRealStatus(startAt, endAt) {
-    const now = Date.now();
+function calculateRealStatus(startAt, endAt, now = Date.now()) {
     const start = new Date(startAt).getTime();
     const end = new Date(endAt).getTime();
 

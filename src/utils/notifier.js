@@ -8,7 +8,7 @@ const { getConfig } = require('./config');
 async function sendDingTalkNotification(title, markdownText) {
     const config = getConfig();
     
-    if (!config.dingdingWebhook) return;
+    if (!config.dingdingWebhook) return false;
     
     try {
         const res = await fetch(config.dingdingWebhook, {
@@ -20,14 +20,25 @@ async function sendDingTalkNotification(title, markdownText) {
                     "title": title,
                     "text": markdownText
                 }
-            })
+            }),
+            signal: AbortSignal.timeout(10_000)
         });
         
         if (!res.ok) {
             console.error(`[ERROR] Failed to send DingTalk notification. HTTP Status: ${res.status}`);
+            return false;
         }
+
+        const result = await res.json().catch(() => ({}));
+        if (result.errcode !== undefined && result.errcode !== 0) {
+            console.error(`[ERROR] DingTalk rejected the notification: ${result.errmsg || result.errcode}`);
+            return false;
+        }
+
+        return true;
     } catch (e) {
         console.error(`[ERROR] DingTalk API request failed: ${e.message}`);
+        return false;
     }
 }
 

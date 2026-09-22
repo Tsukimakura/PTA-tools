@@ -17,6 +17,7 @@ const { generateArchiveMarkdown } = require('../src/services/archiveParser');
 const { fetchMonitoredProblemSets } = require('../bin/pta-monitor');
 const { submissionMatchesExpectedId } = require('../src/services/submitter');
 const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
+const { buildTodoDigest, sendTodoNotification } = require('../src/services/todoNotifier');
 
 const originalFetch = global.fetch;
 
@@ -117,6 +118,37 @@ test('problem-set loader reauthenticates once after an expired cookie', async ()
     assert.equal(authCalls, 1);
     assert.equal(fetchCalls, 2);
     assert.equal(result, expected);
+});
+
+test('todo digest includes only unfinished sets in deadline order', async () => {
+    const now = Date.parse('2026-09-22T00:00:00Z');
+    const sets = [
+        { name: 'Ended', startAt: '2026-09-20T00:00:00Z', endAt: '2026-09-21T00:00:00Z' },
+        { name: 'Later ongoing', startAt: '2026-09-21T00:00:00Z', endAt: '2026-09-24T00:00:00Z' },
+        { name: 'Sooner ongoing', startAt: '2026-09-21T00:00:00Z', endAt: '2026-09-23T00:00:00Z' },
+        { name: 'Upcoming', startAt: '2026-09-25T00:00:00Z', endAt: '2026-09-26T00:00:00Z' }
+    ];
+
+    const digest = buildTodoDigest(sets, now);
+    assert.equal(digest.count, 3);
+    assert.equal(digest.ongoingCount, 2);
+    assert.equal(digest.upcomingCount, 1);
+    assert.doesNotMatch(digest.markdown, /Ended/);
+    assert.ok(digest.markdown.indexOf('Sooner ongoing') < digest.markdown.indexOf('Later ongoing'));
+    assert.ok(digest.markdown.indexOf('Later ongoing') < digest.markdown.indexOf('Upcoming'));
+
+    let deliveredMessage;
+    const sentDigest = await sendTodoNotification({
+        now,
+        loadProblemSets: async () => sets,
+        sendNotification: async (title, markdown) => {
+            deliveredMessage = { title, markdown };
+            return true;
+        }
+    });
+    assert.equal(sentDigest.count, 3);
+    assert.equal(deliveredMessage.title, digest.title);
+    assert.equal(deliveredMessage.markdown, digest.markdown);
 });
 
 test('atomic writer replaces complete files and preserves requested mode', () => {
