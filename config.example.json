@@ -1,7 +1,7 @@
 {
-  "username": "your_email@example.com",
-  "password": "your_password",
+  "username": "",
+  "password": "",
   "cookie": "",
-  "dingdingWebhook": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
+  "dingdingWebhook": "",
   "refreshInterval": 30000
 }

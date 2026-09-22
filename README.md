@@ -9,7 +9,7 @@ A useful (I hope) toolkit for the PTA (Pintia) platform.
 * **Interactive CLI Management:** Seamlessly navigate through current and historical problem sets using arrow keys.
 * **Dual-Mode Downloader:** For ongoing problem-sets (Clean Mode), download the problems. For ended ones (Archive Mode), download more information like scores/answers/ranks etc.
 * **Terminal Report Cards:** Direct command-line data grid showing the basic information of the chosen problem-set.
-* **Proactive Status Monitor:** Persistent polling daemon capable of computing real-time status changes and emitting notifications via integrated DingTalk webhooks.
+* **Proactive Status Monitor:** Persistent foreground poller that computes real-time status changes and emits notifications via DingTalk webhooks.
 
 ---
 
@@ -29,15 +29,26 @@ npm install
 ```
 
 
-3. **Environment Setup:**
-Duplicate the example profile into a concrete local configurations map:
+3. **Configuration:**
+
+Environment variables are recommended for credentials:
+
+```bash
+export PTA_USERNAME="your_email@example.com"
+export PTA_PASSWORD="your_password"
+export DINGTALK_WEBHOOK="https://oapi.dingtalk.com/robot/send?access_token=..."
+export PTA_REFRESH_INTERVAL="30000"
+```
+
+Alternatively, copy the example configuration:
 
 ```bash
 cp config.example.json config.json
 ```
 
 
-Open `config.json` and insert your username and password (cookie is not necessary)
+Open `config.json` and insert the values you need. `cookie` is optional because a
+validated session cookie is captured after browser login.
 
 ```json
 {
@@ -48,6 +59,11 @@ Open `config.json` and insert your username and password (cookie is not necessar
   "refreshInterval": 30000
 }
 ```
+
+Environment variables override values from `config.json`. The full supported set
+is `PTA_USERNAME`, `PTA_PASSWORD`, `PTA_COOKIE`, `DINGTALK_WEBHOOK`, and
+`PTA_REFRESH_INTERVAL`. On Unix-like systems, the tool restricts `config.json` to
+the current user (`0600`) before using it. The file remains excluded from Git.
 
 ---
 
@@ -61,9 +77,10 @@ To start downloading assignments or inspecting reports via terminal, execute:
 npm run cli
 ```
 
-Then I believe you can understand how to use it.
+After installing or linking the package, the same entry point is available as
+`pta-tools`.
 
-### 2. Status Monitoring Daemon (Monitor)
+### 2. Status Monitor
 
 To spin up the continuous tracking subsystem that records state changes and pipes them straight to your communication channels, execute:
 
@@ -71,9 +88,21 @@ To spin up the continuous tracking subsystem that records state changes and pipe
 npm run monitor
 ```
 
-The program will generate a local database layer tracking state-machine transformations (`pta_status.json`) and run silently in the background.
+The program creates `pta_status.json` to track state transitions. It remains in
+the foreground; use a process supervisor such as systemd or PM2 when you need it
+to run as a background service. The installed executable is `pta-monitor`.
 
 (In short, you can use it to avoid missing a test...)
+
+### 3. Development checks
+
+```bash
+npm test
+npm run check
+```
+
+The test suite uses mocked HTTP responses and does not log in, submit answers, or
+send notifications.
 
 
 ---
@@ -84,4 +113,4 @@ I'm far from skilled temporarily. Issues and PRs (Contact me first) are welcome.
 
 QQ: 2889908070 (recommended);
 
-email: [chenlingshi@zju.edu.cn](chenlingshi@zju.edu.cn)
+email: [chenlingshi@zju.edu.cn](mailto:chenlingshi@zju.edu.cn)
