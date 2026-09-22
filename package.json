@@ -1,7 +1,26 @@
 {
   "name": "pta-tools",
   "version": "1.0.0",
-  "description": "An automation and utility toolkit for the Pintia (PTA) platform.",
+  "description": "A command-line toolkit for the Pintia (PTA) platform.",
+  "homepage": "https://github.com/Tsukimakura/PTA-tools#readme",
+  "bugs": {
+    "url": "https://github.com/Tsukimakura/PTA-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tsukimakura/PTA-tools.git"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "config.example.json",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "LICENSE"
+  ],
   "bin": {
     "pta": "bin/pta.js",
     "pta-tools": "bin/pta-cli.js",
@@ -19,10 +38,13 @@
   },
   "keywords": [
     "pta",
+    "pintia",
+    "cli",
+    "dingding",
     "puppeteer",
     "monitor"
   ],
-  "author": "",
+  "author": "Tsukimakura",
   "license": "GPL-3.0-only",
   "dependencies": {
     "inquirer": "^8.2.7",
