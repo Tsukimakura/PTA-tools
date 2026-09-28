@@ -3,6 +3,8 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { getConfig, updateCookie } = require('../utils/config');
 const { getTimestamp } = require('../utils/helpers');
 const { getEndpoints } = require('../api/endpoints');
+const { readPtaJson } = require('../api/client');
+const { parseProblemSetPage } = require('../services/problemSetPage');
 
 puppeteer.use(StealthPlugin());
 
@@ -21,8 +23,8 @@ async function validateAuthenticationCookie(cookie) {
         });
         if (!response.ok) return false;
 
-        const data = await response.json();
-        return !data.error;
+        parseProblemSetPage(await readPtaJson(response, 'Authentication validation'));
+        return true;
     } catch (error) {
         return false;
     }

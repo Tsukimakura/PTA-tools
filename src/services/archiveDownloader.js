@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { ptaFetch, readPtaJson } = require('../api/client');
+const { ptaFetch, readPtaJson, requireObjectField, requireArrayField } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateArchiveMarkdown } = require('./archiveParser');
 const { ensureExamSession } = require('./examSession');
@@ -20,8 +20,7 @@ async function downloadArchive(setId, setName) {
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         
-        if (!summaryData.summaries) throw new Error("Failed to fetch problem summaries.");
-        const problemTypes = Object.keys(summaryData.summaries);
+        const problemTypes = Object.keys(requireObjectField(summaryData, 'summaries', 'Problem summaries'));
 
         const problemsByType = {};
         const submissionMap = {};
@@ -33,7 +32,7 @@ async function downloadArchive(setId, setName) {
             // Fetch raw problems
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
             const probData = await readPtaJson(probRes, `Problems of type ${type}`);
-            const problems = probData.problemSetProblems || [];
+            const problems = requireArrayField(probData, 'problemSetProblems', `Problems of type ${type}`);
             problemsByType[type] = problems;
 
             // Fetch submissions based on problem type logic

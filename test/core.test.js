@@ -4,7 +4,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const { ptaFetch, readPtaJson } = require('../src/api/client');
+const {
+    ptaFetch,
+    readPtaJson,
+    requireObjectField,
+    requireArrayField
+} = require('../src/api/client');
 const { getEndpoints } = require('../src/api/endpoints');
 const { calculateRealStatus } = require('../src/utils/helpers');
 const { writeFileAtomicSync } = require('../src/utils/files');
@@ -141,6 +146,13 @@ test('readPtaJson rejects API error payloads returned with HTTP 200', async () =
         error => error.code === 'USER_NOT_FOUND'
             && /Problem-set list/.test(error.message)
     );
+});
+
+test('required PTA response fields reject malformed payloads', () => {
+    assert.deepEqual(requireObjectField({ summaries: {} }, 'summaries', 'Summaries'), {});
+    assert.deepEqual(requireArrayField({ problemSetProblems: [] }, 'problemSetProblems', 'Problems'), []);
+    assert.throws(() => requireObjectField({}, 'summaries', 'Summaries'), /no valid summaries object/);
+    assert.throws(() => requireArrayField({}, 'problemSetProblems', 'Problems'), /no problemSetProblems array/);
 });
 
 test('monitor recognizes an expired session returned as an HTTP error', async () => {

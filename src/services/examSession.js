@@ -17,7 +17,11 @@ async function ensureExamSession(setId, setName) {
     let sessionData = await readPtaJson(sessionRes, 'Exam session');
 
     // 2. If exam is not started, exam.id is usually missing or an error is returned
-    if (sessionData.error || !sessionData.exam || !sessionData.exam.id) {
+    if (!Object.prototype.hasOwnProperty.call(sessionData, 'exam')) {
+        throw new Error('Exam session returned no exam field.');
+    }
+
+    if (!sessionData.exam || !sessionData.exam.id) {
         console.log(`\n[WARN] The problem set "${setName}" has not been started yet.`);
         
         const { startNow } = await inquirer.prompt([
@@ -54,8 +58,8 @@ async function ensureExamSession(setId, setName) {
             sessionData = await readPtaJson(sessionRes, 'Exam session verification');
 
             // Final verification
-            if (sessionData.error || !sessionData.exam || !sessionData.exam.id) {
-                throw new Error(`Verification failed: ${sessionData.error ? sessionData.error.message : 'Unknown API error'}`);
+            if (!sessionData.exam || !sessionData.exam.id) {
+                throw new Error('Verification failed: exam session did not include an exam ID.');
             }
             
         } else {

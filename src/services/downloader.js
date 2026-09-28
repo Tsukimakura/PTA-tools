@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { ptaFetch, readPtaJson } = require('../api/client');
+const { ptaFetch, readPtaJson, requireObjectField, requireArrayField } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateMarkdown } = require('./parser');
 const { ensureExamSession } = require('./examSession');
@@ -80,10 +80,7 @@ async function downloadProblemSet(setId, setName) {
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         
-        if (!summaryData.summaries) {
-            throw new Error("Failed to fetch problem summaries.");
-        }
-        const problemTypes = Object.keys(summaryData.summaries);
+        const problemTypes = Object.keys(requireObjectField(summaryData, 'summaries', 'Problem summaries'));
         console.log(`[INFO] Found problem types: ${problemTypes.join(', ')}`);
 
         // 3. Fetch problems for each type
@@ -93,7 +90,7 @@ async function downloadProblemSet(setId, setName) {
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
             const probData = await readPtaJson(probRes, `Problems of type ${type}`);
             
-            problemsByType[type] = probData.problemSetProblems || [];
+            problemsByType[type] = requireArrayField(probData, 'problemSetProblems', `Problems of type ${type}`);
             
             // Tiny delay to avoid rate-limiting
             await new Promise(r => setTimeout(r, 200));
@@ -137,7 +134,7 @@ async function downloadOngoingProgress(setId, setName) {
         console.log("[INFO] Fetching problem type summaries...");
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
-        const problemTypes = Object.keys(summaryData.summaries || {});
+        const problemTypes = Object.keys(requireObjectField(summaryData, 'summaries', 'Problem summaries'));
 
         const problemsByType = {};
         const savedAnswersMap = {}; // Map to store answers without judge logic
@@ -146,7 +143,7 @@ async function downloadOngoingProgress(setId, setName) {
             console.log(`[INFO] Fetching problems and saved answers for type: ${type}...`);
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
             const probData = await readPtaJson(probRes, `Problems of type ${type}`);
-            const problems = probData.problemSetProblems || [];
+            const problems = requireArrayField(probData, 'problemSetProblems', `Problems of type ${type}`);
             problemsByType[type] = problems;
 
             // Extract ONLY answers based on problem type

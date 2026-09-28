@@ -1,4 +1,4 @@
-const { ptaFetch, readPtaJson } = require('../api/client');
+const { ptaFetch, readPtaJson, requireObjectField, requireArrayField } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { calculateRealStatus } = require('../utils/helpers');
 const { ensureExamSession } = require('./examSession');
@@ -38,7 +38,7 @@ async function generateOngoingInfo(selectedSet) {
         // 2. Fetch Summaries (Max scores and total problems)
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
-        const summaries = summaryData.summaries || {};
+        const summaries = requireObjectField(summaryData, 'summaries', 'Problem summaries');
 
         // 3. Fetch Rankings (Current scores and rank)
         const rankingRes = await ptaFetch(endpoints.COMMON_RANKINGS(setId, userId));
@@ -49,7 +49,7 @@ async function generateOngoingInfo(selectedSet) {
         // 4. Fetch Problem Status (Completion counts)
         const statusRes = await ptaFetch(endpoints.PROBLEM_STATUS(examId, setId));
         const statusData = await readPtaJson(statusRes, 'Problem status');
-        const problemStatusList = statusData.problemStatus || [];
+        const problemStatusList = requireArrayField(statusData, 'problemStatus', 'Problem status');
 
         // Aggregate completion counts by type
         const completionByType = {};
@@ -135,7 +135,7 @@ async function generateTerminalReport(setId, setName) {
         // 2. Fetch Problem Summaries to get the maximum possible scores
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
-        const summaries = summaryData.summaries || {};
+        const summaries = requireObjectField(summaryData, 'summaries', 'Problem summaries');
         
         let maxTotalScore = 0;
         for (const type in summaries) {

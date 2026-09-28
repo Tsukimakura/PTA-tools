@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const inquirer = require('inquirer');
-const { ptaFetch, readPtaJson } = require('../api/client');
+const { ptaFetch, readPtaJson, requireArrayField, requireObjectField } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { ensureExamSession } = require('./examSession');
 
@@ -161,7 +161,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
         console.log("[INFO] Fetching problem list...");
         const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, problemType));
         const probData = await readPtaJson(probRes, `Problems of type ${problemType}`);
-        const problems = probData.problemSetProblems || [];
+        const problems = requireArrayField(probData, 'problemSetProblems', `Problems of type ${problemType}`);
 
         if (problems.length === 0) {
             console.log(`[INFO] No problems found for type: ${problemType}`);
@@ -451,7 +451,10 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
 
         const postData = await readPtaJson(postRes, 'Answer submission');
 
-        console.log(`[SUCCESS] Answers successfully committed! (Submission ID: ${postData.submissionId})`);
+        const submissionId = postData.submissionId || (postData.submission && postData.submission.id);
+        if (!submissionId) throw new Error('Answer submission did not include a submission ID.');
+
+        console.log(`[SUCCESS] Answers successfully committed! (Submission ID: ${submissionId})`);
 
         // Trigger Active Polling for Code Executions
         if (problemType === 'CODE_COMPLETION' || problemType === 'PROGRAMMING') {
@@ -468,7 +471,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
                     examId,
                     setId,
                     probId,
-                    postData.submissionId
+                    submissionId
                 );
                 
                 if (resultData) {
@@ -498,7 +501,7 @@ async function handleSubmissionDispatcher(selectedSet) {
     try {
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(selectedSet.id));
         const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
-        const availableTypes = Object.keys(summaryData.summaries || {});
+        const availableTypes = Object.keys(requireObjectField(summaryData, 'summaries', 'Problem summaries'));
 
         const supportedTypes = ['TRUE_OR_FALSE', 'MULTIPLE_CHOICE', 'FILL_IN_THE_BLANK_FOR_PROGRAMMING', 'CODE_COMPLETION', 'PROGRAMMING'];
         const validTypes = availableTypes.filter(t => supportedTypes.includes(t));

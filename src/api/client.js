@@ -62,6 +62,22 @@ async function readPtaJson(response, context = 'PTA API') {
     return payload;
 }
 
+function requireObjectField(payload, field, context = 'PTA API') {
+    const value = payload && payload[field];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`${context} returned no valid ${field} object.`);
+    }
+    return value;
+}
+
+function requireArrayField(payload, field, context = 'PTA API') {
+    const value = payload && payload[field];
+    if (!Array.isArray(value)) {
+        throw new Error(`${context} returned no ${field} array.`);
+    }
+    return value;
+}
+
 /**
  * A centralized fetch wrapper that automatically injects PTA anti-CSRF headers and authentication cookies.
  * @param {string} url - The target API URL
@@ -136,5 +152,7 @@ async function ptaFetch(url, options = {}) {
 module.exports = {
     ptaFetch,
     createApiError,
-    readPtaJson
+    readPtaJson,
+    requireObjectField,
+    requireArrayField
 };
