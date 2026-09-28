@@ -46,8 +46,10 @@ async function fetchAllProblemSets() {
             // Small 300ms delay to prevent rate-limiting (WAF defense)
             await new Promise(r => setTimeout(r, 300));
         } catch (error) {
-            console.error(`[ERROR] Failed to fetch problem sets on page ${page}: ${error.message}`);
-            break;
+            if (error.code === 'USER_NOT_FOUND') return null;
+
+            error.message = `Failed to fetch problem sets on page ${page}: ${error.message}`;
+            throw error;
         }
     }
 

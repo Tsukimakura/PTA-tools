@@ -84,6 +84,36 @@ test('ptaFetch never retries POST by default', async () => {
     assert.equal(calls, 1);
 });
 
+test('ptaFetch exposes structured PTA API errors', async () => {
+    global.fetch = async () => new Response(JSON.stringify({
+        error: { code: 'USER_NOT_FOUND', message: 'User Not Found' }
+    }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    await assert.rejects(
+        ptaFetch('https://pintia.cn/api/test', { retries: 0 }),
+        error => error.code === 'USER_NOT_FOUND'
+            && error.status === 404
+            && /USER_NOT_FOUND/.test(error.message)
+    );
+});
+
+test('monitor recognizes an expired session returned as an HTTP error', async () => {
+    const result = await fetchMonitoredProblemSets(
+        { MONITORED_PROBLEM_SETS: () => 'https://pintia.cn/api/problem-sets' },
+        async () => {
+            const error = new Error('expired');
+            error.code = 'USER_NOT_FOUND';
+            error.apiMessage = 'User Not Found';
+            throw error;
+        }
+    );
+
+    assert.deepEqual(result, { error: { code: 'USER_NOT_FOUND', message: 'User Not Found' } });
+});
+
 test('endpoint builder encodes monitor pagination', () => {
     const url = new URL(getEndpoints().MONITORED_PROBLEM_SETS(2, 25));
     assert.equal(url.searchParams.get('page'), '2');

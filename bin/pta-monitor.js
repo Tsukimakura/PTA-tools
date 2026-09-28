@@ -23,7 +23,15 @@ async function fetchMonitoredProblemSets(endpoints, fetcher = ptaFetch) {
     const problemSets = [];
 
     while (problemSets.length < total) {
-        const response = await fetcher(endpoints.MONITORED_PROBLEM_SETS(page, limit));
+        let response;
+        try {
+            response = await fetcher(endpoints.MONITORED_PROBLEM_SETS(page, limit));
+        } catch (error) {
+            if (error.code === 'USER_NOT_FOUND') {
+                return { error: { code: error.code, message: error.apiMessage } };
+            }
+            throw error;
+        }
         const data = await response.json();
 
         if (data.error) return data;

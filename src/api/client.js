@@ -7,6 +7,24 @@ function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function createApiError(response) {
+    const error = new Error(`PTA API request failed: HTTP ${response.status} ${response.statusText}`.trim());
+    error.status = response.status;
+
+    try {
+        const payload = await response.clone().json();
+        if (payload && payload.error) {
+            error.code = payload.error.code;
+            error.apiMessage = payload.error.message;
+            error.message = `PTA API request failed: ${payload.error.code || payload.error.message} (HTTP ${response.status})`;
+        }
+    } catch (_) {
+        // Some PTA error responses are not JSON. Keep the HTTP-level error above.
+    }
+
+    return error;
+}
+
 /**
  * A centralized fetch wrapper that automatically injects PTA anti-CSRF headers and authentication cookies.
  * @param {string} url - The target API URL
@@ -60,7 +78,7 @@ async function ptaFetch(url, options = {}) {
 
             if (response.ok) return response;
             if (!retryableStatus || attempt === maxRetries) {
-                const error = new Error(`PTA API request failed: HTTP ${response.status} ${response.statusText}`.trim());
+                const error = await createApiError(response);
                 error.retryable = retryableStatus;
                 throw error;
             }
@@ -79,5 +97,6 @@ async function ptaFetch(url, options = {}) {
 }
 
 module.exports = {
-    ptaFetch
+    ptaFetch,
+    createApiError
 };
