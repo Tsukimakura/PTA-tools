@@ -11,6 +11,7 @@ const { getCookieViaBrowser } = require('../src/auth/authManager');
 const { ptaFetch, readPtaJson } = require('../src/api/client');
 const { getEndpoints } = require('../src/api/endpoints');
 const { writeFileAtomicSync } = require('../src/utils/files');
+const { parseProblemSetPage, assertCompleteProblemSetPage } = require('../src/services/problemSetPage');
 
 // Resolve path relative to the bin directory
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
@@ -42,15 +43,26 @@ async function fetchMonitoredProblemSets(endpoints, fetcher = ptaFetch) {
             throw error;
         }
 
-        const pageSets = data.problemSets || (data.data && data.data.problemSets) || [];
-        const reportedTotal = data.total !== undefined
-            ? data.total
-            : (data.data && data.data.total);
+        const parsedPage = parseProblemSetPage(data, 'Monitored problem-set list');
+        const pageSets = parsedPage.problemSets;
+        const reportedTotal = parsedPage.total;
 
         if (reportedTotal !== undefined) total = reportedTotal;
+        assertCompleteProblemSetPage({
+            context: 'Monitored problem-set list',
+            collected: problemSets.length,
+            pageSets,
+            total
+        });
+        if (pageSets.length === 0) break;
         problemSets.push(...pageSets);
 
-        if (pageSets.length < limit) break;
+        if (problemSets.length >= total || pageSets.length < limit) {
+            if (problemSets.length < total) {
+                throw new Error(`Monitored problem-set list ended before all ${total} problem sets were received.`);
+            }
+            break;
+        }
         page++;
     }
 

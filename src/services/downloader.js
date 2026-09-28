@@ -5,6 +5,7 @@ const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateMarkdown } = require('./parser');
 const { ensureExamSession } = require('./examSession');
 const { writeFileAtomicSync } = require('../utils/files');
+const { parseProblemSetPage, assertCompleteProblemSetPage } = require('./problemSetPage');
 
 /**
  * Fetch all problem sets available to the user, handling API pagination automatically.
@@ -25,15 +26,25 @@ async function fetchAllProblemSets() {
             const data = await readPtaJson(response, 'Problem-set list');
 
             // Handle potential auth errors
-            // On the first request, update the total count target
-            if (page === 0 && data.total !== undefined) {
-                total = data.total;
-            }
+            const parsedPage = parseProblemSetPage(data);
+            if (parsedPage.total !== undefined) total = parsedPage.total;
 
-            const currentSets = data.problemSets || [];
-            if (currentSets.length === 0) break; // Safety break if page is unexpectedly empty
+            const currentSets = parsedPage.problemSets;
+            assertCompleteProblemSetPage({
+                context: 'Problem-set list',
+                collected: allProblemSets.length,
+                pageSets: currentSets,
+                total
+            });
+            if (currentSets.length === 0) break;
 
             allProblemSets = allProblemSets.concat(currentSets);
+            if (allProblemSets.length >= total || currentSets.length < limit) {
+                if (allProblemSets.length < total) {
+                    throw new Error(`Problem-set list ended before all ${total} problem sets were received.`);
+                }
+                break;
+            }
             page++;
 
             // Small 300ms delay to prevent rate-limiting (WAF defense)

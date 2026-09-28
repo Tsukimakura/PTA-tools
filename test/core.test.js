@@ -19,6 +19,7 @@ const { submissionMatchesExpectedId } = require('../src/services/submitter');
 const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 const { buildTodoDigest, sendTodoNotification } = require('../src/services/todoNotifier');
 const { runCommand } = require('../bin/pta');
+const { parseProblemSetPage } = require('../src/services/problemSetPage');
 
 const originalFetch = global.fetch;
 
@@ -54,6 +55,26 @@ test('monitor pagination collects every page', async () => {
     const result = await fetchMonitoredProblemSets(endpoints, fetcher);
     assert.equal(result.problemSets.length, 51);
     assert.deepEqual(requestedUrls, ['page=0&limit=50', 'page=1&limit=50']);
+});
+
+test('problem-set page parser rejects a missing list instead of treating it as empty', () => {
+    assert.throws(
+        () => parseProblemSetPage({ total: 0 }),
+        /no problemSets array/
+    );
+});
+
+test('monitor rejects incomplete pagination instead of reporting partial data', async () => {
+    await assert.rejects(
+        fetchMonitoredProblemSets(
+            { MONITORED_PROBLEM_SETS: () => 'https://pintia.cn/api/problem-sets' },
+            async () => new Response(JSON.stringify({
+                problemSets: [{ id: 'only-set' }],
+                total: 2
+            }), { headers: { 'Content-Type': 'application/json' } })
+        ),
+        /ended before all 2 problem sets/
+    );
 });
 
 test('ptaFetch retries transient GET failures', async () => {
