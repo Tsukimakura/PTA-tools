@@ -14,12 +14,13 @@ const {
     generateMarkdown
 } = require('../src/services/parser');
 const { generateArchiveMarkdown } = require('../src/services/archiveParser');
-const { fetchMonitoredProblemSets } = require('../bin/pta-monitor');
+const { fetchMonitoredProblemSets, sendRequiredDingTalkNotification } = require('../bin/pta-monitor');
 const { submissionMatchesExpectedId } = require('../src/services/submitter');
 const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 const { buildTodoDigest, sendTodoNotification } = require('../src/services/todoNotifier');
 const { runCommand } = require('../bin/pta');
 const { parseProblemSetPage } = require('../src/services/problemSetPage');
+const { isDingTalkSuccessResponse } = require('../src/utils/notifier');
 
 const originalFetch = global.fetch;
 
@@ -74,6 +75,17 @@ test('monitor rejects incomplete pagination instead of reporting partial data', 
             }), { headers: { 'Content-Type': 'application/json' } })
         ),
         /ended before all 2 problem sets/
+    );
+});
+
+test('DingTalk delivery requires an explicit successful webhook response', async () => {
+    assert.equal(isDingTalkSuccessResponse({ errcode: 0 }), true);
+    assert.equal(isDingTalkSuccessResponse({}), false);
+    assert.equal(isDingTalkSuccessResponse({ errcode: 310000 }), false);
+
+    await assert.rejects(
+        sendRequiredDingTalkNotification('title', 'message', async () => false),
+        /notification was not sent/
     );
 });
 

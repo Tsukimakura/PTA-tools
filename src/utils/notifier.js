@@ -1,5 +1,11 @@
 const { getConfig } = require('./config');
 
+function isDingTalkSuccessResponse(result) {
+    return Boolean(result)
+        && typeof result === 'object'
+        && result.errcode === 0;
+}
+
 /**
  * Send notification via DingTalk webhook using Markdown format
  * @param {string} title - The notification title (displayed on mobile notification banners)
@@ -29,9 +35,16 @@ async function sendDingTalkNotification(title, markdownText) {
             return false;
         }
 
-        const result = await res.json().catch(() => ({}));
-        if (result.errcode !== undefined && result.errcode !== 0) {
-            console.error(`[ERROR] DingTalk rejected the notification: ${result.errmsg || result.errcode}`);
+        let result;
+        try {
+            result = await res.json();
+        } catch (error) {
+            console.error(`[ERROR] DingTalk returned invalid JSON: ${error.message}`);
+            return false;
+        }
+
+        if (!isDingTalkSuccessResponse(result)) {
+            console.error(`[ERROR] DingTalk rejected the notification: ${result && (result.errmsg || result.errcode) || 'invalid response'}`);
             return false;
         }
 
@@ -43,5 +56,6 @@ async function sendDingTalkNotification(title, markdownText) {
 }
 
 module.exports = {
-    sendDingTalkNotification
+    sendDingTalkNotification,
+    isDingTalkSuccessResponse
 };

@@ -17,6 +17,11 @@ const { parseProblemSetPage, assertCompleteProblemSetPage } = require('../src/se
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
 let isChecking = false;
 
+async function sendRequiredDingTalkNotification(title, message, notifier = sendDingTalkNotification) {
+    const sent = await notifier(title, message);
+    if (!sent) throw new Error('DingTalk notification was not sent. Check DINGTALK_WEBHOOK or config.json.');
+}
+
 async function fetchMonitoredProblemSets(endpoints, fetcher = ptaFetch) {
     const limit = 50;
     let page = 0;
@@ -171,9 +176,9 @@ async function checkPTAStatus() {
                 initialMessage += "> *No ongoing problem sets at the moment.*\n";
             }
 
+            await sendRequiredDingTalkNotification(title, initialMessage.trim());
             writeFileAtomicSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2) + '\n');
             console.log("[INFO] Data initialization completed. Status saved to local file.");
-            await sendDingTalkNotification(title, initialMessage.trim());
             isChecking = false;
             return;
         }
@@ -257,7 +262,7 @@ async function checkPTAStatus() {
             }
 
             console.log(`[INFO] Status changes detected! Sending Markdown notification...`);
-            await sendDingTalkNotification(title, finalMessage.trim());
+            await sendRequiredDingTalkNotification(title, finalMessage.trim());
             writeFileAtomicSync(STATUS_FILE, JSON.stringify(lastStatus, null, 2) + '\n');
         } else {
             if (cacheDirty) {
@@ -291,7 +296,7 @@ async function handleShutdown(signal) {
     const message = `### PTA Monitor Process Terminated\n\n- **Time:** \`${time}\`\n- **Reason:** \`${signal}\`\n\n> The background monitoring script has been safely stopped.`;
     
     try {
-        await sendDingTalkNotification(title, message);
+        await sendRequiredDingTalkNotification(title, message);
         console.log("[INFO] Shutdown notification sent successfully. Exiting.");
     } catch (e) {
         console.error(`[ERROR] Failed to send shutdown notification: ${e.message}`);
@@ -313,7 +318,7 @@ async function bootSequence() {
     // Convert interval from milliseconds to seconds
     const intervalSecs = (REFRESH_INTERVAL / 1000).toFixed(0);
     const message = `### PTA Monitor Process Started\n\n- **Time:** \`${time}\`\n- **PID:** \`${process.pid}\`\n- **Refresh Interval:** \`${intervalSecs} seconds\`\n\n> The script has initialized successfully and is now active.`;
-    await sendDingTalkNotification(title, message);
+    await sendRequiredDingTalkNotification(title, message);
     checkPTAStatus();
     setInterval(checkPTAStatus, REFRESH_INTERVAL);
 }
@@ -334,6 +339,7 @@ if (require.main === module) startMonitor();
 module.exports = {
     fetchMonitoredProblemSets,
     formatSetInfo,
+    sendRequiredDingTalkNotification,
     checkPTAStatus,
     startMonitor
 };
