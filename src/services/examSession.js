@@ -1,5 +1,5 @@
 const inquirer = require('inquirer');
-const { ptaFetch } = require('../api/client');
+const { ptaFetch, readPtaJson } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 
 /**
@@ -14,7 +14,7 @@ async function ensureExamSession(setId, setName) {
     
     // 1. Try getting the session normally (GET)
     let sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-    let sessionData = await sessionRes.json();
+    let sessionData = await readPtaJson(sessionRes, 'Exam session');
 
     // 2. If exam is not started, exam.id is usually missing or an error is returned
     if (sessionData.error || !sessionData.exam || !sessionData.exam.id) {
@@ -41,13 +41,9 @@ async function ensureExamSession(setId, setName) {
                 body: JSON.stringify({}) // Empty JSON body as required by PTA API
             });
             
-            const postData = await postRes.json();
+            const postData = await readPtaJson(postRes, 'Start problem set');
 
             // Catch any explicit errors from the POST request
-            if (postData.error) {
-                throw new Error(`Failed to start: ${postData.error.message || postData.error.code}`);
-            }
-            
             console.log(`[SUCCESS] Problem set started successfully! Fetching data...`);
             
             // Give the backend a brief moment to sync the database state (800ms)
@@ -55,7 +51,7 @@ async function ensureExamSession(setId, setName) {
 
             // Re-fetch the session using standard GET to guarantee identical data structure
             sessionRes = await ptaFetch(endpoints.EXAM_SESSION(setId));
-            sessionData = await sessionRes.json();
+            sessionData = await readPtaJson(sessionRes, 'Exam session verification');
 
             // Final verification
             if (sessionData.error || !sessionData.exam || !sessionData.exam.id) {

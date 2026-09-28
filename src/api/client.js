@@ -25,6 +25,43 @@ async function createApiError(response) {
     return error;
 }
 
+function createPayloadError(payload, context) {
+    const apiError = payload && payload.error;
+    const code = apiError && apiError.code;
+    const message = apiError && apiError.message;
+    const error = new Error(
+        `${context} returned an API error: ${code || message || 'Unknown error'}`
+    );
+
+    error.code = code;
+    error.apiMessage = message;
+    return error;
+}
+
+/**
+ * Parse a successful PTA response without allowing an API-level error payload
+ * to be mistaken for valid, empty data.
+ * @param {Response} response
+ * @param {string} context
+ * @returns {Promise<object>}
+ */
+async function readPtaJson(response, context = 'PTA API') {
+    let payload;
+
+    try {
+        payload = await response.json();
+    } catch (error) {
+        throw new Error(`${context} returned invalid JSON: ${error.message}`);
+    }
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`${context} returned an invalid response payload.`);
+    }
+
+    if (payload.error) throw createPayloadError(payload, context);
+    return payload;
+}
+
 /**
  * A centralized fetch wrapper that automatically injects PTA anti-CSRF headers and authentication cookies.
  * @param {string} url - The target API URL
@@ -98,5 +135,6 @@ async function ptaFetch(url, options = {}) {
 
 module.exports = {
     ptaFetch,
-    createApiError
+    createApiError,
+    readPtaJson
 };

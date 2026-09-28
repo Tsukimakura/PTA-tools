@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const inquirer = require('inquirer');
-const { ptaFetch } = require('../api/client');
+const { ptaFetch, readPtaJson } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { ensureExamSession } = require('./examSession');
 
@@ -58,7 +58,7 @@ async function pollJudgeResult(examId, setId, probId, expectedSubmissionId, maxR
         
         try {
             const res = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, probId));
-            const data = await res.json();
+            const data = await readPtaJson(res, 'Judge result polling');
             
             if (data && data.submission) {
                 if (!submissionMatchesExpectedId(data.submission, expectedSubmissionId)) {
@@ -160,7 +160,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
 
         console.log("[INFO] Fetching problem list...");
         const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, problemType));
-        const probData = await probRes.json();
+        const probData = await readPtaJson(probRes, `Problems of type ${problemType}`);
         const problems = probData.problemSetProblems || [];
 
         if (problems.length === 0) {
@@ -170,7 +170,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
 
         console.log("[INFO] Fetching saved progress from server...");
         const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_TYPE(examId, setId, problemType));
-        const subData = await subRes.json();
+        const subData = await readPtaJson(subRes, `Saved submissions of type ${problemType}`);
         
         const existingAnswers = {};
         if (subData.submission && subData.submission.submissionDetails) {
@@ -449,11 +449,7 @@ async function submitInteractiveAnswers(setId, setName, problemType) {
             headers: { 'Content-Type': 'application/json;charset=UTF-8' }
         });
 
-        const postData = await postRes.json();
-
-        if (postData.error) {
-            throw new Error(`Submission rejected: ${postData.error.message || postData.error.code}`);
-        }
+        const postData = await readPtaJson(postRes, 'Answer submission');
 
         console.log(`[SUCCESS] Answers successfully committed! (Submission ID: ${postData.submissionId})`);
 
@@ -501,7 +497,7 @@ async function handleSubmissionDispatcher(selectedSet) {
     const endpoints = getEndpoints();
     try {
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(selectedSet.id));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         const availableTypes = Object.keys(summaryData.summaries || {});
 
         const supportedTypes = ['TRUE_OR_FALSE', 'MULTIPLE_CHOICE', 'FILL_IN_THE_BLANK_FOR_PROGRAMMING', 'CODE_COMPLETION', 'PROGRAMMING'];

@@ -1,4 +1,4 @@
-const { ptaFetch } = require('../api/client');
+const { ptaFetch, readPtaJson } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { calculateRealStatus } = require('../utils/helpers');
 const { ensureExamSession } = require('./examSession');
@@ -37,18 +37,18 @@ async function generateOngoingInfo(selectedSet) {
 
         // 2. Fetch Summaries (Max scores and total problems)
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         const summaries = summaryData.summaries || {};
 
         // 3. Fetch Rankings (Current scores and rank)
         const rankingRes = await ptaFetch(endpoints.COMMON_RANKINGS(setId, userId));
-        const rankingData = await rankingRes.json();
+        const rankingData = await readPtaJson(rankingRes, 'Problem-set rankings');
         const selfRank = rankingData.selfRanking || null;
         const totalUsers = rankingData.total || 0;
 
         // 4. Fetch Problem Status (Completion counts)
         const statusRes = await ptaFetch(endpoints.PROBLEM_STATUS(examId, setId));
-        const statusData = await statusRes.json();
+        const statusData = await readPtaJson(statusRes, 'Problem status');
         const problemStatusList = statusData.problemStatus || [];
 
         // Aggregate completion counts by type
@@ -134,7 +134,7 @@ async function generateTerminalReport(setId, setName) {
 
         // 2. Fetch Problem Summaries to get the maximum possible scores
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         const summaries = summaryData.summaries || {};
         
         let maxTotalScore = 0;
@@ -144,7 +144,7 @@ async function generateTerminalReport(setId, setName) {
 
         // 3. Fetch Rankings to get the user's actual scores
         const rankingRes = await ptaFetch(endpoints.COMMON_RANKINGS(setId, userId));
-        const rankingData = await rankingRes.json();
+        const rankingData = await readPtaJson(rankingRes, 'Problem-set rankings');
 
         if (!rankingData.selfRanking) {
             console.log("[INFO] No ranking data available for this problem set.");

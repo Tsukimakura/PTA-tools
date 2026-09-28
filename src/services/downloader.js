@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { ptaFetch } = require('../api/client');
+const { ptaFetch, readPtaJson } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateMarkdown } = require('./parser');
 const { ensureExamSession } = require('./examSession');
@@ -22,16 +22,9 @@ async function fetchAllProblemSets() {
     while (allProblemSets.length < total) {
         try {
             const response = await ptaFetch(endpoints.ALL_PROBLEM_SETS(page, limit));
-            const data = await response.json();
+            const data = await readPtaJson(response, 'Problem-set list');
 
             // Handle potential auth errors
-            if (data.error && data.error.code === 'USER_NOT_FOUND') {
-                return null; // Return null to signal authentication failure
-            }
-            if (data.error) {
-                throw new Error(`API Error: ${data.error.message || data.error.code}`);
-            }
-
             // On the first request, update the total count target
             if (page === 0 && data.total !== undefined) {
                 total = data.total;
@@ -74,7 +67,7 @@ async function downloadProblemSet(setId, setName) {
         // 2. Fetch Problem Summaries (to know what types of problems exist)
         console.log("[INFO] Fetching problem type summaries...");
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         
         if (!summaryData.summaries) {
             throw new Error("Failed to fetch problem summaries.");
@@ -87,7 +80,7 @@ async function downloadProblemSet(setId, setName) {
         for (const type of problemTypes) {
             console.log(`[INFO] Downloading problems of type: ${type}...`);
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
-            const probData = await probRes.json();
+            const probData = await readPtaJson(probRes, `Problems of type ${type}`);
             
             problemsByType[type] = probData.problemSetProblems || [];
             
@@ -132,7 +125,7 @@ async function downloadOngoingProgress(setId, setName) {
 
         console.log("[INFO] Fetching problem type summaries...");
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         const problemTypes = Object.keys(summaryData.summaries || {});
 
         const problemsByType = {};
@@ -141,14 +134,14 @@ async function downloadOngoingProgress(setId, setName) {
         for (const type of problemTypes) {
             console.log(`[INFO] Fetching problems and saved answers for type: ${type}...`);
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
-            const probData = await probRes.json();
+            const probData = await readPtaJson(probRes, `Problems of type ${type}`);
             const problems = probData.problemSetProblems || [];
             problemsByType[type] = problems;
 
             // Extract ONLY answers based on problem type
             if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
                 const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_TYPE(examId, setId, type));
-                const subData = await subRes.json();
+                const subData = await readPtaJson(subRes, `Saved submissions of type ${type}`);
                 
                 if (subData.submission && subData.submission.submissionDetails) {
                     subData.submission.submissionDetails.forEach(detail => {
@@ -163,7 +156,7 @@ async function downloadOngoingProgress(setId, setName) {
             } else {
                 for (const prob of problems) {
                     const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, prob.id));
-                    const subData = await subRes.json();
+                    const subData = await readPtaJson(subRes, `Saved submission for problem ${prob.id}`);
                     
                     if (subData.submission && subData.submission.submissionDetails && subData.submission.submissionDetails.length > 0) {
                         const detail = subData.submission.submissionDetails[0];

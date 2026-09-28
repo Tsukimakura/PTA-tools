@@ -8,7 +8,7 @@ const { getConfig, updateCookie } = require('../src/utils/config');
 const { calculateRealStatus, getTimestamp } = require('../src/utils/helpers');
 const { sendDingTalkNotification } = require('../src/utils/notifier');
 const { getCookieViaBrowser } = require('../src/auth/authManager');
-const { ptaFetch } = require('../src/api/client');
+const { ptaFetch, readPtaJson } = require('../src/api/client');
 const { getEndpoints } = require('../src/api/endpoints');
 const { writeFileAtomicSync } = require('../src/utils/files');
 
@@ -32,9 +32,15 @@ async function fetchMonitoredProblemSets(endpoints, fetcher = ptaFetch) {
             }
             throw error;
         }
-        const data = await response.json();
-
-        if (data.error) return data;
+        let data;
+        try {
+            data = await readPtaJson(response, 'Monitored problem-set list');
+        } catch (error) {
+            if (error.code === 'USER_NOT_FOUND') {
+                return { error: { code: error.code, message: error.apiMessage } };
+            }
+            throw error;
+        }
 
         const pageSets = data.problemSets || (data.data && data.data.problemSets) || [];
         const reportedTotal = data.total !== undefined

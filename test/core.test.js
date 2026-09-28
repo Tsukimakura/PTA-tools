@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const { ptaFetch } = require('../src/api/client');
+const { ptaFetch, readPtaJson } = require('../src/api/client');
 const { getEndpoints } = require('../src/api/endpoints');
 const { calculateRealStatus } = require('../src/utils/helpers');
 const { writeFileAtomicSync } = require('../src/utils/files');
@@ -97,6 +97,16 @@ test('ptaFetch exposes structured PTA API errors', async () => {
         error => error.code === 'USER_NOT_FOUND'
             && error.status === 404
             && /USER_NOT_FOUND/.test(error.message)
+    );
+});
+
+test('readPtaJson rejects API error payloads returned with HTTP 200', async () => {
+    await assert.rejects(
+        readPtaJson(new Response(JSON.stringify({
+            error: { code: 'USER_NOT_FOUND', message: 'User Not Found' }
+        })), 'Problem-set list'),
+        error => error.code === 'USER_NOT_FOUND'
+            && /Problem-set list/.test(error.message)
     );
 });
 

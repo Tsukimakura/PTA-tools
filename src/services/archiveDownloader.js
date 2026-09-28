@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { ptaFetch } = require('../api/client');
+const { ptaFetch, readPtaJson } = require('../api/client');
 const { getEndpoints } = require('../api/endpoints');
 const { sanitizeFilename, generateArchiveMarkdown } = require('./archiveParser');
 const { ensureExamSession } = require('./examSession');
@@ -18,7 +18,7 @@ async function downloadArchive(setId, setName) {
         // 2. Fetch Problem Summaries
         console.log("[INFO] Fetching problem schema...");
         const summaryRes = await ptaFetch(endpoints.PROBLEM_SUMMARIES(setId));
-        const summaryData = await summaryRes.json();
+        const summaryData = await readPtaJson(summaryRes, 'Problem summaries');
         
         if (!summaryData.summaries) throw new Error("Failed to fetch problem summaries.");
         const problemTypes = Object.keys(summaryData.summaries);
@@ -32,14 +32,14 @@ async function downloadArchive(setId, setName) {
             
             // Fetch raw problems
             const probRes = await ptaFetch(endpoints.EXAM_PROBLEMS(setId, examId, type));
-            const probData = await probRes.json();
+            const probData = await readPtaJson(probRes, `Problems of type ${type}`);
             const problems = probData.problemSetProblems || [];
             problemsByType[type] = problems;
 
             // Fetch submissions based on problem type logic
             if (type === 'MULTIPLE_CHOICE' || type === 'TRUE_OR_FALSE') {
                 const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_TYPE(examId, setId, type));
-                const subData = await subRes.json();
+                const subData = await readPtaJson(subRes, `Saved submissions of type ${type}`);
                 
                 if (subData.submission) {
                     const details = subData.submission.submissionDetails || [];
@@ -68,7 +68,7 @@ async function downloadArchive(setId, setName) {
             // Branch specifically for Fill-in-the-blank programming questions
             else if (type === 'FILL_IN_THE_BLANK_FOR_PROGRAMMING') {
                 const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_TYPE(examId, setId, type));
-                const subData = await subRes.json();
+                const subData = await readPtaJson(subRes, `Saved submissions of type ${type}`);
                 
                 if (subData.submission) {
                     const s = subData.submission;
@@ -107,7 +107,7 @@ async function downloadArchive(setId, setName) {
                 // These submission types should be fetched individually by problem ID
                 for (const prob of problems) {
                     const subRes = await ptaFetch(endpoints.LAST_SUBMISSIONS_BY_PROBLEM(examId, setId, prob.id));
-                    const subData = await subRes.json();
+                    const subData = await readPtaJson(subRes, `Saved submission for problem ${prob.id}`);
                     
                     if (subData.submission) {
                         const s = subData.submission;
@@ -148,7 +148,7 @@ async function downloadArchive(setId, setName) {
                                 // Fetch the actual download URL for the submitted zip file
                                 try {
                                     const urlRes = await ptaFetch(endpoints.SUBMISSION_FILE_URL(s.id));
-                                    const urlData = await urlRes.json();
+                                    const urlData = await readPtaJson(urlRes, `Download URL for submission ${s.id}`);
                                     
                                     if (urlData && urlData.url) {
                                         s.downloadInfo = {
