@@ -17,6 +17,23 @@ const { parseProblemSetPage, assertCompleteProblemSetPage } = require('../src/se
 const STATUS_FILE = path.join(__dirname, '../pta_status.json');
 let isChecking = false;
 
+const STATUS_LABELS = {
+    NOT_STARTED: '未开始',
+    ONGOING: '进行中',
+    ENDED: '已结束'
+};
+
+function formatStatus(status) {
+    return STATUS_LABELS[status] || status || '未知';
+}
+
+function formatShutdownReason(signal) {
+    if (signal.startsWith('SIGINT')) return '用户手动中断';
+    if (signal.startsWith('SIGTERM')) return '系统终止进程';
+    if (signal.startsWith('Application Crash:')) return `应用异常：${signal.slice('Application Crash:'.length).trim()}`;
+    return signal;
+}
+
 async function sendRequiredDingTalkNotification(title, message, notifier = sendDingTalkNotification) {
     const sent = await notifier(title, message);
     if (!sent) throw new Error('DingTalk notification was not sent. Check DINGTALK_WEBHOOK or config.json.');
@@ -85,7 +102,7 @@ function formatSetInfo(set, overrideStatus) {
     const startDate = new Date(set.startAt).toLocaleString('zh-CN', { hour12: false });
     const endDate = new Date(set.endAt).toLocaleString('zh-CN', { hour12: false });
     
-    return `**${set.name}**\n- Status: ${realStatus}\n- Start: ${startDate}\n- **End: \`${endDate}\`**`;
+    return `**${set.name}**\n- 状态：${formatStatus(realStatus)}\n- 开始：${startDate}\n- **截止：\`${endDate}\`**`;
 }
 
 async function checkPTAStatus() {
@@ -147,8 +164,8 @@ async function checkPTAStatus() {
         
         // First Run: Create file and send Markdown summary
         if (!fs.existsSync(STATUS_FILE)) {
-            const title = "PTA Monitor: Data Initialization";
-            let initialMessage = "### PTA Monitor Data Initialization\nInitial data cache created successfully.\n\n---\n\n#### Currently ONGOING\n\n";
+            const title = 'PTA 题集监控：初始化';
+            let initialMessage = '### PTA 题集监控初始化\n\n已建立本地状态缓存。\n\n---\n\n#### 当前进行中\n\n';
 
             let ongoingBlocks = [];
 
@@ -173,7 +190,7 @@ async function checkPTAStatus() {
             if (ongoingBlocks.length > 0) {
                 initialMessage += ongoingBlocks.join("\n\n---\n\n");
             } else {
-                initialMessage += "> *No ongoing problem sets at the moment.*\n";
+                initialMessage += '> 当前没有进行中的题集。\n';
             }
 
             await sendRequiredDingTalkNotification(title, initialMessage.trim());
@@ -197,7 +214,7 @@ async function checkPTAStatus() {
             if (!oldData) {
                 // New problem set detected
                 hasChange = true;
-                changeMessages.push(`**[NEW SET DETECTED]**\n${formatSetInfo(set, realStatus)}`);
+                changeMessages.push(`**[发现新题集]**\n${formatSetInfo(set, realStatus)}`);
                 lastStatus[set.id] = { 
                     status: realStatus, 
                     name: set.name,
@@ -217,7 +234,7 @@ async function checkPTAStatus() {
                 if (oldData.status !== realStatus) {
                     // Status change detected (e.g., ONGOING -> ENDED)
                     hasChange = true;
-                    changeMessages.push(`**[STATUS UPDATE: \`${oldData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(set, realStatus)}`);
+                    changeMessages.push(`**[状态变化：\`${formatStatus(oldData.status)}\` → \`${formatStatus(realStatus)}\`]**\n${formatSetInfo(set, realStatus)}`);
                     lastStatus[set.id].status = realStatus;
                     cacheDirty = true;
                 }
@@ -238,7 +255,7 @@ async function checkPTAStatus() {
                     if (cachedData.status === realStatus) continue;
                     hasChange = true;
                     cacheDirty = true;
-                    changeMessages.push(`**[STATUS UPDATE: \`${cachedData.status}\` -> \`${realStatus}\`]**\n${formatSetInfo(cachedData, realStatus)}`);
+                    changeMessages.push(`**[状态变化：\`${formatStatus(cachedData.status)}\` → \`${formatStatus(realStatus)}\`]**\n${formatSetInfo(cachedData, realStatus)}`);
                     lastStatus[id].status = realStatus;
                 }
             }
@@ -246,19 +263,19 @@ async function checkPTAStatus() {
 
         // Notification: Send formatted Markdown report
         if (hasChange) {
-            const title = "PTA Monitor: Status Updates";
-            let finalMessage = "### PTA Monitor Updates\n\n---\n\n#### Changes Detected\n\n";
+            const title = 'PTA 题集监控：状态更新';
+            let finalMessage = '### PTA 题集状态更新\n\n---\n\n#### 检测到的变化\n\n';
             
             finalMessage += changeMessages.join("\n\n---\n\n") + "\n\n";
 
-            finalMessage += "---\n\n#### Currently ONGOING\n\n";
+            finalMessage += '---\n\n#### 当前进行中\n\n';
             const ongoingSets = currentProblemSets.filter(set => calculateRealStatus(set.startAt, set.endAt) === 'ONGOING');
             
             if (ongoingSets.length > 0) {
                 const ongoingBlocks = ongoingSets.map(set => formatSetInfo(set, 'ONGOING'));
                 finalMessage += ongoingBlocks.join("\n\n---\n\n") + "\n\n";
             } else {
-                finalMessage += "> *No ongoing problem sets at the moment.*\n";
+                finalMessage += '> 当前没有进行中的题集。\n';
             }
 
             console.log(`[INFO] Status changes detected! Sending Markdown notification...`);
@@ -290,10 +307,10 @@ const REFRESH_INTERVAL = Number.isFinite(configuredInterval) && configuredInterv
  */
 async function handleShutdown(signal) {
     console.log(`\n[INFO] Received ${signal}.`);
-    const title = "PTA Monitor: Process Terminated";
+    const title = 'PTA 题集监控：已停止';
     const time = new Date().toLocaleString('zh-CN', { hour12: false });
     
-    const message = `### PTA Monitor Process Terminated\n\n- **Time:** \`${time}\`\n- **Reason:** \`${signal}\`\n\n> The background monitoring script has been safely stopped.`;
+    const message = `### PTA 题集监控已停止\n\n- 时间：\`${time}\`\n- 原因：\`${formatShutdownReason(signal)}\`\n\n> 监控进程已安全退出。`;
     
     try {
         await sendRequiredDingTalkNotification(title, message);
@@ -312,12 +329,12 @@ async function handleShutdown(signal) {
  */
 async function bootSequence() {
     console.log(`[INFO] Booting PTA Monitor... (PID: ${process.pid})`);
-    const title = "PTA Monitor: Process Started";
+    const title = 'PTA 题集监控：已启动';
     const time = new Date().toLocaleString('zh-CN', { hour12: false });
     
     // Convert interval from milliseconds to seconds
     const intervalSecs = (REFRESH_INTERVAL / 1000).toFixed(0);
-    const message = `### PTA Monitor Process Started\n\n- **Time:** \`${time}\`\n- **PID:** \`${process.pid}\`\n- **Refresh Interval:** \`${intervalSecs} seconds\`\n\n> The script has initialized successfully and is now active.`;
+    const message = `### PTA 题集监控已启动\n\n- 时间：\`${time}\`\n- 进程 ID：\`${process.pid}\`\n- 刷新间隔：\`${intervalSecs} 秒\`\n\n> 监控已初始化，正在运行。`;
     await sendRequiredDingTalkNotification(title, message);
     checkPTAStatus();
     setInterval(checkPTAStatus, REFRESH_INTERVAL);
@@ -339,6 +356,8 @@ if (require.main === module) startMonitor();
 module.exports = {
     fetchMonitoredProblemSets,
     formatSetInfo,
+    formatStatus,
+    formatShutdownReason,
     sendRequiredDingTalkNotification,
     checkPTAStatus,
     startMonitor

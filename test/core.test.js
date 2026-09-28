@@ -19,7 +19,13 @@ const {
     generateMarkdown
 } = require('../src/services/parser');
 const { generateArchiveMarkdown } = require('../src/services/archiveParser');
-const { fetchMonitoredProblemSets, sendRequiredDingTalkNotification } = require('../bin/pta-monitor');
+const {
+    fetchMonitoredProblemSets,
+    formatSetInfo,
+    formatStatus,
+    formatShutdownReason,
+    sendRequiredDingTalkNotification
+} = require('../bin/pta-monitor');
 const { submissionMatchesExpectedId } = require('../src/services/submitter');
 const { loadAuthenticatedProblemSets } = require('../src/services/problemSets');
 const { buildTodoDigest, sendTodoNotification } = require('../src/services/todoNotifier');
@@ -91,6 +97,15 @@ test('DingTalk delivery requires an explicit successful webhook response', async
     await assert.rejects(
         sendRequiredDingTalkNotification('title', 'message', async () => false),
         /notification was not sent/
+    );
+});
+
+test('monitor DingTalk templates use Chinese status and lifecycle text', () => {
+    assert.equal(formatStatus('ONGOING'), '进行中');
+    assert.equal(formatShutdownReason('SIGINT (Manual Interruption)'), '用户手动中断');
+    assert.match(
+        formatSetInfo({ name: '练习', startAt: 0, endAt: 1 }, 'NOT_STARTED'),
+        /状态：未开始/
     );
 });
 
